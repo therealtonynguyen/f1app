@@ -51,9 +51,9 @@ If it's not found, go to **[git-scm.com](https://git-scm.com)** and download the
 
 ### Step 3 — Install a code editor (recommended)
 
-Visual Studio Code is free and beginner-friendly.
+Cursor is a code editor with built-in AI that can help you understand and write code — great for learning.
 
-1. Go to **[code.visualstudio.com](https://code.visualstudio.com)**
+1. Go to **[cursor.com](https://cursor.com)**
 2. Download and install it
 
 ---
@@ -98,7 +98,7 @@ To stop it, go back to Terminal and press **Ctrl + C**.
 
 ## Making changes
 
-1. Open the `f1app` folder in VS Code: **File → Open Folder**
+1. Open the `f1app` folder in Cursor: **File → Open Folder**
 2. Edit any file inside `src/`
 3. The browser will automatically update as you save — no need to restart
 
