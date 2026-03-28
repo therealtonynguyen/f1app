@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useF1Data } from './hooks/useF1Data';
 import { useLapReplay } from './hooks/useLapReplay';
+import { useReplayCarTelemetry } from './hooks/useReplayCarTelemetry';
 import { useCircuitData } from './hooks/useCircuitData';
 import { Header } from './components/Header';
 import { DriverPanel } from './components/DriverPanel';
 import { ReplayControls } from './components/ReplayControls';
 import { MapView } from './components/MapView';
 import { CircuitInfoPanel } from './components/CircuitInfoPanel';
+import { buildOgTelemetryTrack } from './lib/replayOgTrack';
 
-type AppMode = 'live' | 'replay' | 'map';
+type AppMode = 'live' | 'replay' | 'og' | 'map';
 
 export default function App() {
   const [mode, setMode] = useState<AppMode>('live');
+  const [driversPanelOpen, setDriversPanelOpen] = useState(true);
   const [driversHiddenOnTrack, setDriversHiddenOnTrack] = useState<Set<number>>(() => new Set());
 
   const {
@@ -43,6 +46,20 @@ export default function App() {
     }
     return next;
   }, [driversHiddenOnTrack, validDriverNumbers]);
+
+  const allDriversVisibleOnTrack = useMemo(() => {
+    if (drivers.length === 0) return true;
+    return drivers.every((d) => !driversHiddenOnTrackResolved.has(d.driver_number));
+  }, [drivers, driversHiddenOnTrackResolved]);
+
+  const toggleAllTrackVisibility = useCallback(() => {
+    if (drivers.length === 0) return;
+    if (allDriversVisibleOnTrack) {
+      setDriversHiddenOnTrack(new Set(drivers.map((d) => d.driver_number)));
+    } else {
+      setDriversHiddenOnTrack(new Set());
+    }
+  }, [drivers, allDriversVisibleOnTrack]);
 
   const toggleDriverTrackVisibility = useCallback((driverNumber: number) => {
     setDriversHiddenOnTrack((prev) => {
@@ -89,17 +106,36 @@ export default function App() {
   }, [session?.session_key, drivers]);
 
   function handleModeChange(next: AppMode) {
-    if (next === 'replay' && replay.driverData.length === 0 && !replay.isLoading) {
+    if (
+      (next === 'replay' || next === 'og') &&
+      replay.driverData.length === 0 &&
+      !replay.isLoading
+    ) {
       replay.load();
     }
-    if (mode === 'replay' && next !== 'replay') {
+    if ((mode === 'replay' || mode === 'og') && next !== 'replay' && next !== 'og') {
       replay.pause();
     }
     setMode(next);
   }
 
   const isReplayMode = mode === 'replay';
+  const isOgMode = mode === 'og';
+  const isReplayLikeMode = isReplayMode || isOgMode;
   const isMapMode = mode === 'map';
+
+  const ogTrackPoints = useMemo(
+    () => (isOgMode ? buildOgTelemetryTrack(replay.driverData) : []),
+    [isOgMode, replay.driverData]
+  );
+
+  const replayCarData = useReplayCarTelemetry(
+    session?.session_key ?? null,
+    selectedDriverNumber,
+    replay.driverData,
+    replay.currentTime,
+    isReplayLikeMode
+  );
 
   return (
     <div className="flex flex-col h-screen bg-[#050508] overflow-hidden">
@@ -171,9 +207,9 @@ export default function App() {
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
-          <div className="flex flex-1 min-h-0">
+          <div className="flex min-h-0 flex-1">
             {/* Main view: satellite map + GeoJSON circuit; telemetry overlaid */}
-            <div className="flex-1 min-w-0">
+            <div className="relative min-w-0 flex-1">
               <MapView
                 meta={circuit.meta}
                 geo={circuit.geo}
@@ -184,43 +220,68 @@ export default function App() {
                 selectedDriverNumber={selectedDriverNumber}
                 onSelectDriver={setSelectedDriverNumber}
                 driversHiddenOnTrack={driversHiddenOnTrackResolved}
-                replayPositions={isReplayMode ? replay.positions : undefined}
-                replayTrails={isReplayMode ? replay.trails : undefined}
+                replayPositions={isReplayLikeMode ? replay.positions : undefined}
+                replayTrails={isReplayLikeMode ? replay.trails : undefined}
+                ogTrackMode={isOgMode}
+                ogTrackPoints={ogTrackPoints}
               />
+              <button
+                type="button"
+                aria-expanded={driversPanelOpen}
+                onClick={() => setDriversPanelOpen((o) => !o)}
+                className="absolute right-3 top-3 z-[1000] rounded-lg border border-white/10 bg-black/75 px-3 py-1.5 text-xs font-medium text-gray-200 shadow-lg backdrop-blur-sm transition-colors hover:border-white/20 hover:bg-black/85 hover:text-white"
+              >
+                {driversPanelOpen ? 'Hide drivers' : 'Show drivers'}
+              </button>
             </div>
 
             {/* Right panel */}
-            <div className="w-72 shrink-0 flex flex-col min-h-0">
-              {isMapMode ? (
-                <CircuitInfoPanel
-                  meta={circuit.meta}
-                  geo={circuit.geo}
-                  session={session}
-                  drivers={drivers}
-                  selectedDriverNumber={selectedDriverNumber}
-                  onSelectDriver={setSelectedDriverNumber}
-                  driversHiddenOnTrack={driversHiddenOnTrackResolved}
-                  onToggleDriverTrackVisibility={toggleDriverTrackVisibility}
-                />
-              ) : (
-                <DriverPanel
-                  drivers={drivers}
-                  selectedDriverNumber={selectedDriverNumber}
-                  onSelectDriver={setSelectedDriverNumber}
-                  selectedDriverLaps={selectedDriverLaps}
-                  selectedDriverCarData={selectedDriverCarData}
-                  replayMode={isReplayMode}
-                  replayDriverData={replay.driverData}
-                  replayCurrentTime={replay.currentTime}
-                  driversHiddenOnTrack={driversHiddenOnTrackResolved}
-                  onToggleDriverTrackVisibility={toggleDriverTrackVisibility}
-                />
-              )}
+            <div
+              className={`flex min-h-0 shrink-0 flex-col overflow-hidden border-l bg-[#0d0d15] transition-[width] duration-200 ease-out ${
+                driversPanelOpen
+                  ? 'w-72 border-[#1e1e2e]'
+                  : 'w-0 border-transparent'
+              }`}
+            >
+              <div className="flex h-full w-72 min-h-0 flex-col">
+                {isMapMode ? (
+                  <CircuitInfoPanel
+                    meta={circuit.meta}
+                    geo={circuit.geo}
+                    session={session}
+                    drivers={drivers}
+                    selectedDriverNumber={selectedDriverNumber}
+                    onSelectDriver={setSelectedDriverNumber}
+                    driversHiddenOnTrack={driversHiddenOnTrackResolved}
+                    allDriversVisibleOnTrack={allDriversVisibleOnTrack}
+                    onToggleAllTrackVisibility={toggleAllTrackVisibility}
+                    onToggleDriverTrackVisibility={toggleDriverTrackVisibility}
+                  />
+                ) : (
+                  <DriverPanel
+                    drivers={drivers}
+                    selectedDriverNumber={selectedDriverNumber}
+                    onSelectDriver={setSelectedDriverNumber}
+                    selectedDriverLaps={selectedDriverLaps}
+                    selectedDriverCarData={selectedDriverCarData}
+                    replayCarData={replayCarData}
+                    replayMode={isReplayLikeMode}
+                    replayDriverData={replay.driverData}
+                    replayCurrentTime={replay.currentTime}
+                    replayTrails={isReplayLikeMode ? replay.trails : undefined}
+                    trackOutline={trackOutline}
+                    driversHiddenOnTrack={driversHiddenOnTrackResolved}
+                    allDriversVisibleOnTrack={allDriversVisibleOnTrack}
+                    onToggleAllTrackVisibility={toggleAllTrackVisibility}
+                    onToggleDriverTrackVisibility={toggleDriverTrackVisibility}
+                  />
+                )}
+              </div>
             </div>
           </div>
 
           {/* Replay Controls */}
-          {isReplayMode && (
+          {isReplayLikeMode && (
             <ReplayControls
               driverData={replay.driverData}
               currentTime={replay.currentTime}

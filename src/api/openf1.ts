@@ -170,3 +170,15 @@ export async function fetchCarData(
     `/car_data?session_key=${sessionKey}&driver_number=${driverNumber}&date>${windowStart}`
   );
 }
+
+/** Car telemetry samples for a lap window (replay / sync with location). */
+export async function fetchCarDataRange(
+  sessionKey: number,
+  driverNumber: number,
+  dateStart: string,
+  dateEnd: string
+): Promise<CarData[]> {
+  return apiFetch<CarData>(
+    `/car_data?session_key=${sessionKey}&driver_number=${driverNumber}&date>${dateStart}&date<${dateEnd}`
+  );
+}

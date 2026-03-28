@@ -1,6 +1,6 @@
 import type { Session } from '../types/openf1';
 
-type AppMode = 'live' | 'replay' | 'map';
+type AppMode = 'live' | 'replay' | 'og' | 'map';
 
 interface Props {
   session: Session | null;
@@ -55,6 +55,7 @@ export function Header({ session, isLive, isLoading, isLoadingTrack, onRefresh, 
               [
                 { id: 'live', label: 'Live' },
                 { id: 'replay', label: 'Replay' },
+                { id: 'og', label: 'OG data' },
                 { id: 'map', label: 'Map' },
               ] as { id: AppMode; label: string }[]
             ).map(({ id, label }) => (

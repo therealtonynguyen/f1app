@@ -20,6 +20,23 @@ export function boundsFromLocations(
   return { minX, maxX, minY, maxY };
 }
 
+export function boundsFromXYPoints(
+  points: XY[]
+): { minX: number; maxX: number; minY: number; maxY: number } | null {
+  if (points.length === 0) return null;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const p of points) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return { minX, maxX, minY, maxY };
+}
+
 export function localToLatLngBbox(
   x: number,
   y: number,

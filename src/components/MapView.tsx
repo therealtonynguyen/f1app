@@ -6,9 +6,60 @@ import type { ReplayPoint } from '../hooks/useLapReplay';
 import type { DriverWithData, Location } from '../types/openf1';
 import {
   boundsFromLocations,
+  boundsFromXYPoints,
   buildTelemetryToLatLngProjector,
   localToLatLngBbox,
 } from '../lib/telemetryGeoAlign';
+import { metersPerUnitFromTrackOutline, speedKmhFromReplayTrail } from '../lib/locationSpeed';
+
+function buildDriverHighlightBubble(opts: {
+  acronym: string;
+  speedText: string;
+  headshotUrl?: string;
+  teamColourHex: string;
+}): HTMLElement {
+  const { acronym, speedText, headshotUrl, teamColourHex } = opts;
+  const root = document.createElement('div');
+  root.className = 'driver-speed-bubble-inner';
+
+  const topRow = document.createElement('div');
+  topRow.className = 'driver-speed-bubble-top';
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'driver-speed-bubble-acronym';
+  nameEl.textContent = acronym;
+
+  const photoRing = document.createElement('div');
+  photoRing.className = 'driver-speed-bubble-photo-ring';
+  photoRing.style.borderColor = `#${teamColourHex || 'ffffff'}`;
+
+  if (headshotUrl) {
+    const img = document.createElement('img');
+    img.className = 'driver-speed-bubble-photo';
+    img.src = headshotUrl;
+    img.alt = '';
+    img.referrerPolicy = 'no-referrer';
+    img.addEventListener('error', () => {
+      photoRing.classList.add('driver-speed-bubble-photo-ring--empty');
+      img.remove();
+    });
+    photoRing.appendChild(img);
+  } else {
+    photoRing.classList.add('driver-speed-bubble-photo-ring--empty');
+  }
+
+  topRow.appendChild(nameEl);
+  topRow.appendChild(photoRing);
+
+  const speedEl = document.createElement('div');
+  speedEl.className = 'driver-speed-bubble-speedline';
+  speedEl.textContent = speedText;
+
+  root.appendChild(topRow);
+  root.appendChild(speedEl);
+
+  return root;
+}
 
 // Fix Leaflet's broken default icon paths when bundled with Vite
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,32 +85,47 @@ interface MapViewProps {
   /** When set, markers use replay positions instead of live GPS. */
   replayPositions?: Map<number, { x: number; y: number }>;
   replayTrails?: Map<number, ReplayPoint[]>;
+  /**
+   * Replay variant: draw a track from averaged driver GPS (not the GeoJSON circuit)
+   * and fit/projection use only telemetry bounds.
+   */
+  ogTrackMode?: boolean;
+  ogTrackPoints?: { x: number; y: number }[];
 }
 
 type LocalBounds = { minX: number; maxX: number; minY: number; maxY: number };
 
 const EMPTY_HIDDEN = new Set<number>();
 
-/** Leaflet circle radii are in screen px; scale down as the user zooms in (like map features staying map-sized). */
+/** Reference zoom for mild size tweaks only (markers stay nearly fixed on screen). */
 const MAP_ZOOM_STYLE_REF = 16;
 
+/** Very gentle zoom scaling so dots barely grow/shrink. */
+const ZOOM_SIZE_CURVE = 0.1;
+
+/** Min distance (deg ≈ lat/lng) before appending a live trail point — ~2 m */
+const LIVE_TRAIL_MIN_STEP_DEG = 2e-5;
+
+const LIVE_TRAIL_MAX_POINTS = 2500;
+
 function mapZoomScale(zoom: number): number {
-  return Math.pow(2, MAP_ZOOM_STYLE_REF - zoom);
+  const dz = MAP_ZOOM_STYLE_REF - zoom;
+  return Math.pow(2, dz * ZOOM_SIZE_CURVE);
 }
 
 function scaledMarkerRadius(basePx: number, zoom: number): number {
   const s = mapZoomScale(zoom);
-  return Math.max(2, Math.min(22, basePx * s));
+  return Math.max(4.5, Math.min(22, basePx * s));
 }
 
 function scaledOutlineWeight(basePx: number, zoom: number): number {
   const s = mapZoomScale(zoom);
-  return Math.max(0.5, Math.min(6, basePx * s));
+  return Math.max(0.75, Math.min(3.5, basePx * s));
 }
 
 function scaledTrailWeight(basePx: number, zoom: number): number {
   const s = mapZoomScale(zoom);
-  return Math.max(0.35, Math.min(5, basePx * s));
+  return Math.max(0.5, Math.min(3.5, basePx * s));
 }
 
 function computeTelemetryBounds(
@@ -110,6 +176,27 @@ function mergeBounds(a: LocalBounds | null, b: LocalBounds | null): LocalBounds 
   };
 }
 
+function updateSpeedBubble(marker: L.CircleMarker, content: HTMLElement, offsetY: number) {
+  const tt = marker.getTooltip();
+  if (tt) {
+    tt.setContent(content);
+    tt.options.offset = L.point(0, offsetY);
+    tt.update();
+    return;
+  }
+  marker.bindTooltip(content, {
+    permanent: true,
+    direction: 'top',
+    className: 'driver-speed-bubble',
+    offset: L.point(0, offsetY),
+    opacity: 1,
+  });
+}
+
+function clearSpeedBubble(marker: L.CircleMarker) {
+  marker.unbindTooltip();
+}
+
 export function MapView({
   meta,
   geo,
@@ -122,6 +209,8 @@ export function MapView({
   driversHiddenOnTrack,
   replayPositions,
   replayTrails,
+  ogTrackMode = false,
+  ogTrackPoints = [],
 }: MapViewProps) {
   const hiddenOnTrack = driversHiddenOnTrack ?? EMPTY_HIDDEN;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -130,35 +219,63 @@ export function MapView({
   const trackGroupRef = useRef<L.LayerGroup | null>(null);
   const trailsGroupRef = useRef<L.LayerGroup | null>(null);
   const driverLayersRef = useRef<Map<number, L.CircleMarker>>(new Map());
+  const livePathHistoryRef = useRef<Map<number, [number, number][]>>(new Map());
+  const livePathGroupRef = useRef<L.LayerGroup | null>(null);
 
   const isReplayMode = replayPositions !== undefined;
 
-  const localBounds = useMemo(
-    () => computeTelemetryBounds(drivers, replayPositions, replayTrails),
-    [drivers, replayPositions, replayTrails]
-  );
-
   const outlineBounds = useMemo(() => boundsFromLocations(trackOutline), [trackOutline]);
 
-  const mergedBounds = useMemo(
-    () => mergeBounds(localBounds, outlineBounds),
-    [localBounds, outlineBounds]
-  );
+  const ogBounds = useMemo(() => boundsFromXYPoints(ogTrackPoints), [ogTrackPoints]);
+
+  /**
+   * Never fold live car GPS into the projector bounds — that was shifting the whole map
+   * every poll (“following” drivers). Replay still merges replay extents for fallback fit.
+   * OG mode: only telemetry (+ consensus track), no reference outline bbox.
+   */
+  const boundsForProjector = useMemo(() => {
+    if (isReplayMode && replayPositions) {
+      const rb = computeTelemetryBounds([], replayPositions, replayTrails);
+      if (ogTrackMode && ogBounds) {
+        return mergeBounds(rb, ogBounds);
+      }
+      return mergeBounds(outlineBounds, rb);
+    }
+    return outlineBounds;
+  }, [isReplayMode, replayPositions, replayTrails, outlineBounds, ogTrackMode, ogBounds]);
+
+  const metersPerUnit = useMemo(() => {
+    if (ogTrackMode && ogTrackPoints.length >= 4) {
+      let L = 0;
+      for (let i = 1; i < ogTrackPoints.length; i++) {
+        const a = ogTrackPoints[i - 1]!;
+        const b = ogTrackPoints[i]!;
+        L += Math.hypot(b.x - a.x, b.y - a.y);
+      }
+      if (L > 1e-6) return 5000 / L;
+    }
+    return metersPerUnitFromTrackOutline(trackOutline);
+  }, [ogTrackMode, ogTrackPoints, trackOutline]);
 
   /** Affine fit to circuit when outline is available; else axis-aligned bbox vs GeoJSON. */
   const projectXY = useMemo((): ((x: number, y: number) => [number, number]) | null => {
     if (!geo) return null;
-    if (trackOutline.length >= 10) {
+    if (!ogTrackMode && trackOutline.length >= 10) {
       const aff = buildTelemetryToLatLngProjector(trackOutline, geo.coordinates);
       if (aff) return aff;
     }
-    if (mergedBounds) {
-      const b = mergedBounds;
+    if (boundsForProjector) {
+      const b = boundsForProjector;
       return (x, y) =>
         localToLatLngBbox(x, y, b.minX, b.maxX, b.minY, b.maxY, geo.coordinates);
     }
     return null;
-  }, [geo, trackOutline, mergedBounds]);
+  }, [geo, trackOutline, boundsForProjector, ogTrackMode]);
+
+  const ogTrackLatLngs = useMemo((): [number, number][] => {
+    if (!projectXY || ogTrackPoints.length < 2) return [];
+    return ogTrackPoints.map((p) => projectXY(p.x, p.y));
+  }, [projectXY, ogTrackPoints]);
 
   // Initialise map once
   useEffect(() => {
@@ -206,7 +323,20 @@ export function MapView({
     };
   }, [onSelectDriver]);
 
-  // Draw circuit from GeoJSON (not car telemetry)
+  // Live mode: accumulated paths are tied to this circuit; replay uses API trails only.
+  useEffect(() => {
+    livePathHistoryRef.current.clear();
+    livePathGroupRef.current?.clearLayers();
+  }, [geo?.bacingerName]);
+
+  useEffect(() => {
+    if (isReplayMode) {
+      livePathHistoryRef.current.clear();
+      livePathGroupRef.current?.clearLayers();
+    }
+  }, [isReplayMode]);
+
+  // Draw circuit: GeoJSON outline (live / replay) or GPS-derived OG track
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !geo) return;
@@ -214,6 +344,22 @@ export function MapView({
     if (trackGroupRef.current) {
       trackGroupRef.current.remove();
       trackGroupRef.current = null;
+    }
+
+    if (ogTrackMode) {
+      if (ogTrackLatLngs.length >= 3) {
+        const group = L.layerGroup([
+          L.polyline(ogTrackLatLngs, { color: '#ffffff', weight: 14, opacity: 0.1 }),
+          L.polyline(ogTrackLatLngs, { color: '#6b7280', weight: 7, opacity: 0.55 }),
+          L.polyline(ogTrackLatLngs, { color: '#d1d5db', weight: 3.5, opacity: 0.95 }),
+        ]);
+        group.addTo(map);
+        trackGroupRef.current = group;
+        map.fitBounds(L.latLngBounds(ogTrackLatLngs), { padding: [52, 52] });
+      } else if (meta) {
+        map.setView([meta.lat, meta.lng], 15);
+      }
+      return;
     }
 
     const latLngs = geo.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
@@ -228,7 +374,7 @@ export function MapView({
 
     const bounds = L.latLngBounds(latLngs);
     map.fitBounds(bounds, { padding: [48, 48] });
-  }, [geo]);
+  }, [geo, meta, ogTrackMode, ogTrackLatLngs]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -263,14 +409,18 @@ export function MapView({
         opacity: 0.45,
         lineCap: 'round',
         lineJoin: 'round',
+        interactive: false,
       }).addTo(group);
     }
 
     group.addTo(map);
+    group.eachLayer((ly) => {
+      (ly as L.Polyline).bringToBack();
+    });
     trailsGroupRef.current = group;
   }, [geo, projectXY, replayTrails, drivers, isReplayMode, hiddenOnTrack, mapZoom]);
 
-  // Driver markers (live or replay)
+  // Driver markers (live or replay), live painted trails, speed bubbles
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !geo || !projectXY) return;
@@ -299,8 +449,39 @@ export function MapView({
       const color = `#${driver.team_colour || 'ffffff'}`;
       const isSelected = driver.driver_number === selectedDriverNumber;
 
-      const radius = scaledMarkerRadius(isSelected ? 8 : 5, mapZoom);
+      const radius = scaledMarkerRadius(isSelected ? 12 : 8, mapZoom);
       const strokeW = scaledOutlineWeight(isSelected ? 3 : 1, mapZoom);
+
+      const speedKm = isReplayMode
+        ? speedKmhFromReplayTrail(replayTrails?.get(driver.driver_number) ?? [], metersPerUnit)
+        : driver.trackSpeedKmh ?? null;
+      const speedLabel =
+        speedKm != null && Number.isFinite(speedKm) ? `${Math.round(speedKm)} km/h` : '—';
+      const bubbleOffsetY = Math.round(-(radius + 28));
+      const highlightBubble =
+        isSelected
+          ? buildDriverHighlightBubble({
+              acronym: driver.name_acronym,
+              speedText: speedLabel,
+              headshotUrl: driver.headshot_url || undefined,
+              teamColourHex: driver.team_colour || 'ffffff',
+            })
+          : null;
+
+      if (!isReplayMode) {
+        const hist = livePathHistoryRef.current.get(driver.driver_number) ?? [];
+        const last = hist[hist.length - 1];
+        if (
+          !last ||
+          Math.hypot(lat - last[0], lng - last[1]) >= LIVE_TRAIL_MIN_STEP_DEG
+        ) {
+          const next = [...hist, [lat, lng] as [number, number]];
+          livePathHistoryRef.current.set(
+            driver.driver_number,
+            next.length > LIVE_TRAIL_MAX_POINTS ? next.slice(-LIVE_TRAIL_MAX_POINTS) : next
+          );
+        }
+      }
 
       if (existing.has(driver.driver_number)) {
         const marker = existing.get(driver.driver_number)!;
@@ -311,6 +492,9 @@ export function MapView({
           weight: strokeW,
           radius,
         });
+        if (isSelected && highlightBubble) {
+          updateSpeedBubble(marker, highlightBubble, bubbleOffsetY);
+        } else clearSpeedBubble(marker);
       } else {
         const marker = L.circleMarker([lat, lng], {
           radius,
@@ -319,11 +503,9 @@ export function MapView({
           weight: strokeW,
           fillOpacity: 1,
         });
-        marker.bindTooltip(driver.name_acronym, {
-          permanent: false,
-          direction: 'top',
-          className: 'driver-tooltip',
-        });
+        if (isSelected && highlightBubble) {
+          updateSpeedBubble(marker, highlightBubble, bubbleOffsetY);
+        } else clearSpeedBubble(marker);
         marker.on('click', (e) => {
           L.DomEvent.stopPropagation(e);
           onSelectDriver(
@@ -342,6 +524,43 @@ export function MapView({
         existing.delete(num);
       }
     }
+
+    const validNums = new Set(drivers.map((d) => d.driver_number));
+    for (const num of [...livePathHistoryRef.current.keys()]) {
+      if (!validNums.has(num)) livePathHistoryRef.current.delete(num);
+    }
+
+    if (isReplayMode) {
+      livePathGroupRef.current?.clearLayers();
+    } else {
+      let group = livePathGroupRef.current;
+      if (!group) {
+        group = L.layerGroup().addTo(map);
+        livePathGroupRef.current = group;
+      } else {
+        group.clearLayers();
+      }
+      for (const [num, path] of livePathHistoryRef.current) {
+        if (hiddenOnTrack.has(num) || path.length < 2) continue;
+        const driver = drivers.find((d) => d.driver_number === num);
+        const c = `#${driver?.team_colour ?? 'ffffff'}`;
+        L.polyline(path, {
+          color: c,
+          weight: scaledTrailWeight(1.25, mapZoom),
+          opacity: 0.42,
+          lineCap: 'round',
+          lineJoin: 'round',
+          interactive: false,
+        }).addTo(group);
+      }
+      group.eachLayer((ly) => {
+        (ly as L.Polyline).bringToBack();
+      });
+    }
+
+    for (const m of existing.values()) {
+      m.bringToFront();
+    }
   }, [
     drivers,
     geo,
@@ -349,6 +568,8 @@ export function MapView({
     projectXY,
     isReplayMode,
     replayPositions,
+    replayTrails,
+    metersPerUnit,
     onSelectDriver,
     hiddenOnTrack,
     mapZoom,
@@ -377,8 +598,10 @@ export function MapView({
       )}
 
       {geo && (
-        <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-1.5 pointer-events-none">
-          <p className="text-white text-xs font-semibold tracking-wide">{geo.bacingerName}</p>
+        <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-black/60 px-3 py-1.5 backdrop-blur-sm">
+          <p className="text-xs font-semibold tracking-wide text-white">
+            {ogTrackMode ? 'OG track (driver GPS)' : geo.bacingerName}
+          </p>
         </div>
       )}
     </div>

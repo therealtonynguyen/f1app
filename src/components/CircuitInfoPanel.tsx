@@ -1,6 +1,7 @@
 import type { CircuitMeta, GeoCircuit } from '../hooks/useCircuitData';
 import type { Session, DriverWithData } from '../types/openf1';
-import { TrackVisibilitySwitch } from './TrackVisibilitySwitch';
+import { ToggleAllTrackVisibility, TrackVisibilitySwitch } from './TrackVisibilitySwitch';
+import { TeamLogoMark } from './TeamLogoMark';
 
 interface CircuitInfoPanelProps {
   meta: CircuitMeta | null;
@@ -10,6 +11,8 @@ interface CircuitInfoPanelProps {
   selectedDriverNumber: number | null;
   onSelectDriver: (n: number | null) => void;
   driversHiddenOnTrack: Set<number>;
+  allDriversVisibleOnTrack: boolean;
+  onToggleAllTrackVisibility: () => void;
   onToggleDriverTrackVisibility: (driverNumber: number) => void;
 }
 
@@ -21,6 +24,8 @@ export function CircuitInfoPanel({
   selectedDriverNumber,
   onSelectDriver,
   driversHiddenOnTrack,
+  allDriversVisibleOnTrack,
+  onToggleAllTrackVisibility,
   onToggleDriverTrackVisibility,
 }: CircuitInfoPanelProps) {
   return (
@@ -109,9 +114,15 @@ export function CircuitInfoPanel({
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
               Drivers on Map
             </p>
-            <span className="text-[9px] font-medium uppercase tracking-wider text-gray-600">
-              Track
-            </span>
+            <div className="flex items-center gap-2">
+              <ToggleAllTrackVisibility
+                allVisible={allDriversVisibleOnTrack}
+                onToggle={onToggleAllTrackVisibility}
+              />
+              <span className="text-[9px] font-medium uppercase tracking-wider text-gray-600">
+                Track
+              </span>
+            </div>
           </div>
           <div className="space-y-1">
             {drivers
@@ -138,6 +149,7 @@ export function CircuitInfoPanel({
                         className="h-2.5 w-2.5 shrink-0 rounded-full"
                         style={{ backgroundColor: color }}
                       />
+                      <TeamLogoMark teamName={driver.team_name} />
                       <span className="w-6 shrink-0 font-mono text-xs text-gray-300">
                         {driver.name_acronym}
                       </span>
