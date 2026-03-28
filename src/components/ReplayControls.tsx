@@ -46,15 +46,15 @@ export function ReplayControls({
   const pct = maxDuration > 0 ? (currentTime / maxDuration) * 100 : 0;
 
   return (
-    <div className="shrink-0 bg-[#0d0d15] border-t border-[#1e1e2e] px-4 py-3">
+    <div className="shrink-0 bg-[#0d0d15] border-t border-[#1e1e2e] px-5 py-4 text-[15px] leading-snug">
       {/* Loading / error state */}
       {isLoading && (
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-gray-500">{loadingLabel}</span>
-            <span className="text-xs text-gray-600">{Math.round(progress * 100)}%</span>
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-500">{loadingLabel}</span>
+            <span className="text-sm text-gray-600 tabular-nums">{Math.round(progress * 100)}%</span>
           </div>
-          <div className="h-1 bg-[#1a1a2e] rounded overflow-hidden">
+          <div className="h-2 bg-[#1a1a2e] rounded overflow-hidden">
             <div
               className="h-full bg-red-500 rounded transition-all duration-300"
               style={{ width: `${progress * 100}%` }}
@@ -64,16 +64,16 @@ export function ReplayControls({
       )}
 
       {error && !isLoading && (
-        <p className="text-xs text-red-400 mb-2">{error}</p>
+        <p className="text-sm text-red-400 mb-3">{error}</p>
       )}
 
       {/* Timeline scrubber */}
-      <div className="flex items-center gap-3 mb-3">
-        <span className="text-xs font-mono text-gray-400 w-20 shrink-0">
+      <div className="flex items-center gap-4 mb-4">
+        <span className="text-sm font-mono text-gray-400 w-[5.5rem] shrink-0 tabular-nums">
           {formatTime(currentTime)}
         </span>
-        <div className="relative flex-1 h-2 group">
-          <div className="absolute inset-0 bg-[#1a1a2e] rounded cursor-pointer" />
+        <div className="relative flex-1 h-3.5 group">
+          <div className="absolute inset-0 bg-[#1a1a2e] rounded-md cursor-pointer" />
           <div
             className="absolute top-0 left-0 h-full bg-red-500 rounded pointer-events-none"
             style={{ width: `${pct}%` }}
@@ -90,27 +90,27 @@ export function ReplayControls({
           />
           {/* Thumb indicator */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow pointer-events-none transition-opacity"
-            style={{ left: `calc(${pct}% - 6px)`, opacity: hasData ? 1 : 0.2 }}
+            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-md ring-2 ring-[#0d0d15] pointer-events-none transition-opacity"
+            style={{ left: `calc(${pct}% - 8px)`, opacity: hasData ? 1 : 0.2 }}
           />
         </div>
-        <span className="text-xs font-mono text-gray-600 w-20 shrink-0 text-right">
+        <span className="text-sm font-mono text-gray-600 w-[5.5rem] shrink-0 text-right tabular-nums">
           {formatTime(maxDuration)}
         </span>
       </div>
 
       {/* Controls row */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         {/* Transport */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {/* Reset */}
           <button
             onClick={onReset}
             disabled={!hasData || isLoading}
             title="Reset"
-            className="w-8 h-8 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-[#1e1e2e] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-11 h-11 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#1e1e2e] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
             </svg>
           </button>
@@ -119,14 +119,14 @@ export function ReplayControls({
           <button
             onClick={isPlaying ? onPause : onPlay}
             disabled={!hasData || isLoading}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-400 text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow"
+            className="w-12 h-12 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-400 text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-lg"
           >
             {isPlaying ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
               </svg>
             ) : (
-              <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}
@@ -134,21 +134,21 @@ export function ReplayControls({
         </div>
 
         {/* Speed + driver count */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {hasData && (
-            <span className="text-xs text-gray-600">
+            <span className="text-sm text-gray-600 whitespace-nowrap">
               {driverData.length} drivers
             </span>
           )}
 
           {/* Speed selector */}
-          <div className="flex items-center gap-1 bg-[#13131f] rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-[#13131f] rounded-lg p-1.5">
             {SPEEDS.map((s) => (
               <button
                 key={s}
                 onClick={() => onSpeedChange(s)}
                 disabled={!hasData || isLoading}
-                className={`px-2.5 py-1 rounded text-xs font-mono font-semibold transition-colors disabled:opacity-30 ${
+                className={`min-w-[2.75rem] px-3 py-1.5 rounded-md text-sm font-mono font-semibold transition-colors disabled:opacity-30 ${
                   speed === s
                     ? 'bg-red-500 text-white'
                     : 'text-gray-500 hover:text-gray-300'
@@ -163,21 +163,21 @@ export function ReplayControls({
 
       {/* Driver best laps mini table */}
       {hasData && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-4 flex flex-wrap gap-2">
           {driverData
             .sort((a, b) => (a.bestLap.lap_duration ?? 0) - (b.bestLap.lap_duration ?? 0))
             .map(({ driver, bestLap }, i) => (
               <div
                 key={driver.driver_number}
-                className="flex items-center gap-1.5 bg-[#13131f] rounded px-2 py-1"
+                className="flex items-center gap-2 bg-[#13131f] rounded-md px-2.5 py-1.5"
               >
-                <span className="text-[10px] text-gray-600 w-3">{i + 1}</span>
+                <span className="text-xs text-gray-600 w-4 text-center tabular-nums">{i + 1}</span>
                 <div
-                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  className="w-2 h-2 rounded-full shrink-0"
                   style={{ backgroundColor: `#${driver.team_colour}` }}
                 />
-                <span className="text-[11px] font-mono text-gray-300">{driver.name_acronym}</span>
-                <span className="text-[11px] font-mono text-gray-500">
+                <span className="text-sm font-mono text-gray-300">{driver.name_acronym}</span>
+                <span className="text-sm font-mono text-gray-500 tabular-nums">
                   {bestLap.lap_duration != null
                     ? formatTime(bestLap.lap_duration)
                     : '—'}

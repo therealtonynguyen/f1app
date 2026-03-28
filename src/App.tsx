@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useF1Data } from './hooks/useF1Data';
 import { useLapReplay } from './hooks/useLapReplay';
 import { useCircuitData } from './hooks/useCircuitData';
 import { Header } from './components/Header';
-import { TrackMap } from './components/TrackMap';
 import { DriverPanel } from './components/DriverPanel';
 import { ReplayControls } from './components/ReplayControls';
 import { MapView } from './components/MapView';
@@ -13,12 +12,12 @@ type AppMode = 'live' | 'replay' | 'map';
 
 export default function App() {
   const [mode, setMode] = useState<AppMode>('live');
+  const [driversHiddenOnTrack, setDriversHiddenOnTrack] = useState<Set<number>>(() => new Set());
 
   const {
     session,
     drivers,
-    trackPoints,
-    isLoadingTrack,
+    trackOutline,
     selectedDriverNumber,
     setSelectedDriverNumber,
     selectedDriverLaps,
@@ -31,6 +30,63 @@ export default function App() {
 
   const replay = useLapReplay(session?.session_key ?? null, drivers);
   const circuit = useCircuitData(session);
+
+  const validDriverNumbers = useMemo(
+    () => new Set(drivers.map((d) => d.driver_number)),
+    [drivers]
+  );
+
+  const driversHiddenOnTrackResolved = useMemo(() => {
+    const next = new Set<number>();
+    for (const n of driversHiddenOnTrack) {
+      if (validDriverNumbers.has(n)) next.add(n);
+    }
+    return next;
+  }, [driversHiddenOnTrack, validDriverNumbers]);
+
+  const toggleDriverTrackVisibility = useCallback((driverNumber: number) => {
+    setDriversHiddenOnTrack((prev) => {
+      const next = new Set(prev);
+      if (next.has(driverNumber)) next.delete(driverNumber);
+      else next.add(driverNumber);
+      return next;
+    });
+  }, []);
+
+  /** Once per session: hide everyone on the map except P1 (or list leader while positions load). */
+  const trackVisibilitySeedRef = useRef<{
+    sessionKey: number | null;
+    phase: 'none' | 'provisional' | 'final';
+  }>({ sessionKey: null, phase: 'none' });
+
+  useEffect(() => {
+    if (!session || drivers.length === 0) return;
+    const sk = session.session_key;
+    if (trackVisibilitySeedRef.current.sessionKey !== sk) {
+      trackVisibilitySeedRef.current = { sessionKey: sk, phase: 'none' };
+    }
+
+    const p1 = drivers.find((d) => d.position === 1);
+    const anyPosition = drivers.some((d) => d.position !== undefined);
+
+    if (p1) {
+      if (trackVisibilitySeedRef.current.phase !== 'final') {
+        trackVisibilitySeedRef.current.phase = 'final';
+        setDriversHiddenOnTrack(
+          new Set(drivers.map((d) => d.driver_number).filter((n) => n !== p1.driver_number))
+        );
+      }
+      return;
+    }
+
+    if (!anyPosition && trackVisibilitySeedRef.current.phase === 'none') {
+      trackVisibilitySeedRef.current.phase = 'provisional';
+      const top = drivers[0]!.driver_number;
+      setDriversHiddenOnTrack(
+        new Set(drivers.map((d) => d.driver_number).filter((n) => n !== top))
+      );
+    }
+  }, [session?.session_key, drivers]);
 
   function handleModeChange(next: AppMode) {
     if (next === 'replay' && replay.driverData.length === 0 && !replay.isLoading) {
@@ -51,7 +107,7 @@ export default function App() {
         session={session}
         isLive={isLive}
         isLoading={isLoading}
-        isLoadingTrack={isLoadingTrack}
+        isLoadingTrack={circuit.isLoading}
         onRefresh={refresh}
         mode={mode}
         onModeChange={session ? handleModeChange : undefined}
@@ -116,28 +172,21 @@ export default function App() {
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex flex-1 min-h-0">
-            {/* Main view: Track SVG or Satellite Map */}
+            {/* Main view: satellite map + GeoJSON circuit; telemetry overlaid */}
             <div className="flex-1 min-w-0">
-              {isMapMode ? (
-                <MapView
-                  meta={circuit.meta}
-                  geo={circuit.geo}
-                  isLoading={circuit.isLoading}
-                  error={circuit.error}
-                  drivers={drivers}
-                  selectedDriverNumber={selectedDriverNumber}
-                  onSelectDriver={setSelectedDriverNumber}
-                />
-              ) : (
-                <TrackMap
-                  trackPoints={trackPoints}
-                  drivers={drivers}
-                  selectedDriverNumber={selectedDriverNumber}
-                  onSelectDriver={setSelectedDriverNumber}
-                  replayPositions={isReplayMode ? replay.positions : undefined}
-                  replayTrails={isReplayMode ? replay.trails : undefined}
-                />
-              )}
+              <MapView
+                meta={circuit.meta}
+                geo={circuit.geo}
+                isLoading={circuit.isLoading}
+                error={circuit.error}
+                drivers={drivers}
+                trackOutline={trackOutline}
+                selectedDriverNumber={selectedDriverNumber}
+                onSelectDriver={setSelectedDriverNumber}
+                driversHiddenOnTrack={driversHiddenOnTrackResolved}
+                replayPositions={isReplayMode ? replay.positions : undefined}
+                replayTrails={isReplayMode ? replay.trails : undefined}
+              />
             </div>
 
             {/* Right panel */}
@@ -150,6 +199,8 @@ export default function App() {
                   drivers={drivers}
                   selectedDriverNumber={selectedDriverNumber}
                   onSelectDriver={setSelectedDriverNumber}
+                  driversHiddenOnTrack={driversHiddenOnTrackResolved}
+                  onToggleDriverTrackVisibility={toggleDriverTrackVisibility}
                 />
               ) : (
                 <DriverPanel
@@ -161,6 +212,8 @@ export default function App() {
                   replayMode={isReplayMode}
                   replayDriverData={replay.driverData}
                   replayCurrentTime={replay.currentTime}
+                  driversHiddenOnTrack={driversHiddenOnTrackResolved}
+                  onToggleDriverTrackVisibility={toggleDriverTrackVisibility}
                 />
               )}
             </div>

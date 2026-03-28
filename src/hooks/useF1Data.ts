@@ -9,6 +9,10 @@ import type {
   CarData,
   DriverWithData,
 } from '../types/openf1';
+import {
+  metersPerUnitFromTrackOutline,
+  speedKmhFromLocationSeries,
+} from '../lib/locationSpeed';
 
 const POLL_MS = 4000;
 
@@ -37,8 +41,12 @@ function latestByDriver<T extends { driver_number: number; date: string }>(
 export function useF1Data() {
   const [session, setSession] = useState<Session | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [trackPoints, setTrackPoints] = useState<Location[]>([]);
   const [driverLocations, setDriverLocations] = useState<Map<number, Location>>(new Map());
+  /** Reference lap locations for map alignment + speed scaling (not shown as the track line). */
+  const [trackOutline, setTrackOutline] = useState<Location[]>([]);
+  const [trackSpeedKmhByDriver, setTrackSpeedKmhByDriver] = useState<Map<number, number>>(
+    () => new Map()
+  );
   const [positions, setPositions] = useState<Map<number, number>>(new Map());
   const [intervals, setIntervals] = useState<Map<number, Interval>>(new Map());
 
@@ -47,13 +55,14 @@ export function useF1Data() {
   const [selectedDriverCarData, setSelectedDriverCarData] = useState<CarData | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingTrack, setIsLoadingTrack] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
 
   const sessionRef = useRef<Session | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const carPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastLocSampleRef = useRef<Map<number, Location>>(new Map());
+  const trackOutlineRef = useRef<Location[]>([]);
 
   const updateLiveData = useCallback(async (sess: Session) => {
     try {
@@ -65,6 +74,36 @@ export function useF1Data() {
 
       if (locations.length > 0) {
         setDriverLocations(latestByDriver(locations));
+
+        const mpu = metersPerUnitFromTrackOutline(trackOutlineRef.current);
+        const byDriver = new Map<number, Location[]>();
+        for (const loc of locations) {
+          const list = byDriver.get(loc.driver_number) ?? [];
+          list.push(loc);
+          byDriver.set(loc.driver_number, list);
+        }
+
+        setTrackSpeedKmhByDriver((prev) => {
+          const next = new Map(prev);
+          for (const [driverNumber, samples] of byDriver) {
+            const sorted = [...samples].sort((a, b) => (a.date < b.date ? -1 : 1));
+            const prevSample = lastLocSampleRef.current.get(driverNumber);
+            let series = sorted;
+            if (
+              prevSample &&
+              sorted.length > 0 &&
+              sorted[0]!.date > prevSample.date &&
+              sorted[0]!.date !== prevSample.date
+            ) {
+              series = [prevSample, ...sorted];
+            }
+            const kmh = speedKmhFromLocationSeries(series, mpu);
+            if (kmh != null) next.set(driverNumber, kmh);
+            const newest = sorted[sorted.length - 1]!;
+            lastLocSampleRef.current.set(driverNumber, newest);
+          }
+          return next;
+        });
       }
       if (positionsData.length > 0) {
         const posMap = new Map<number, number>();
@@ -94,22 +133,30 @@ export function useF1Data() {
       setSession(sessionData);
       sessionRef.current = sessionData;
       setIsLive(isSessionLive(sessionData));
+      lastLocSampleRef.current.clear();
+      setTrackSpeedKmhByDriver(new Map());
+      setTrackOutline([]);
+      trackOutlineRef.current = [];
 
       const driverData = await api.fetchDrivers(sessionData.session_key);
       setDrivers(driverData);
 
-      // Fetch live data (positions, intervals, current locations)
-      await updateLiveData(sessionData);
-
-      // Load track outline in the background
       if (driverData.length > 0) {
-        setIsLoadingTrack(true);
         const outlineDriver = driverData[0].driver_number;
         api
           .fetchCleanTrackLap(sessionData.session_key, outlineDriver)
-          .then((pts) => setTrackPoints(pts))
-          .finally(() => setIsLoadingTrack(false));
+          .then((pts) => {
+            if (pts.length >= 10) {
+              trackOutlineRef.current = pts;
+              setTrackOutline(pts);
+            }
+          })
+          .catch(() => {});
       }
+
+      // Fetch live data (positions, intervals, current locations)
+      await updateLiveData(sessionData);
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load session data.';
       setError(msg);
@@ -137,6 +184,10 @@ export function useF1Data() {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [isLive, updateLiveData]);
+
+  useEffect(() => {
+    trackOutlineRef.current = trackOutline;
+  }, [trackOutline]);
 
   // Fetch selected driver data
   useEffect(() => {
@@ -183,6 +234,7 @@ export function useF1Data() {
       gap_to_leader: intervals.get(driver.driver_number)?.gap_to_leader,
       interval: intervals.get(driver.driver_number)?.interval,
       currentLocation: driverLocations.get(driver.driver_number),
+      trackSpeedKmh: trackSpeedKmhByDriver.get(driver.driver_number),
     }))
     .sort((a, b) => {
       if (a.position !== undefined && b.position !== undefined) return a.position - b.position;
@@ -194,8 +246,7 @@ export function useF1Data() {
   return {
     session,
     drivers: driversWithData,
-    trackPoints,
-    isLoadingTrack,
+    trackOutline,
     selectedDriverNumber,
     setSelectedDriverNumber,
     selectedDriverLaps,

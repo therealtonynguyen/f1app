@@ -1,5 +1,6 @@
 import type { DriverWithData, Lap, CarData } from '../types/openf1';
 import type { DriverReplayData } from '../hooks/useLapReplay';
+import { TrackVisibilitySwitch } from './TrackVisibilitySwitch';
 
 interface Props {
   drivers: DriverWithData[];
@@ -10,6 +11,8 @@ interface Props {
   replayMode?: boolean;
   replayDriverData?: DriverReplayData[];
   replayCurrentTime?: number;
+  driversHiddenOnTrack: Set<number>;
+  onToggleDriverTrackVisibility: (driverNumber: number) => void;
 }
 
 function formatLap(seconds: number | null | undefined): string {
@@ -76,6 +79,8 @@ export function DriverPanel({
   replayMode = false,
   replayDriverData = [],
   replayCurrentTime = 0,
+  driversHiddenOnTrack,
+  onToggleDriverTrackVisibility,
 }: Props) {
   const replayByDriver = new Map(replayDriverData.map((d) => [d.driver.driver_number, d]));
 
@@ -111,9 +116,12 @@ export function DriverPanel({
     <div className="flex flex-col h-full bg-[#0d0d15] border-l border-[#1e1e2e]">
       {/* Driver list */}
       <div className={`overflow-y-auto ${selected ? 'max-h-[45%]' : 'flex-1'}`}>
-        <div className="sticky top-0 bg-[#0d0d15] px-3 py-2 border-b border-[#1e1e2e] z-10">
-          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[#1e1e2e] bg-[#0d0d15] px-3 py-2">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">
             Drivers
+          </span>
+          <span className="text-[9px] font-medium uppercase tracking-wider text-gray-600">
+            Track
           </span>
         </div>
 
@@ -123,11 +131,12 @@ export function DriverPanel({
           sortedDrivers.map((d) => {
             const active = d.driver_number === selectedDriverNumber;
             const color = teamColor(d.team_colour);
+            const visibleOnTrack = !driversHiddenOnTrack.has(d.driver_number);
             return (
               <div
                 key={d.driver_number}
                 onClick={() => onSelectDriver(active ? null : d.driver_number)}
-                className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer border-b border-[#141420] transition-colors ${
+                className={`flex cursor-pointer items-center gap-2 border-b border-[#141420] px-3 py-2 transition-colors ${
                   active ? 'bg-[#17172a]' : 'hover:bg-[#111120]'
                 }`}
               >
@@ -158,7 +167,7 @@ export function DriverPanel({
                 </div>
 
                 {/* Gap to leader (replay) or race gap (live) */}
-                <div className="text-[11px] font-mono shrink-0">
+                <div className="shrink-0 text-[11px] font-mono">
                   {replayMode ? (() => {
                     const rd = replayByDriver.get(d.driver_number);
                     if (!rd) return <span className="text-gray-600">—</span>;
@@ -177,6 +186,11 @@ export function DriverPanel({
                     <span className="text-gray-500">{formatGap(d.gap_to_leader)}</span>
                   )}
                 </div>
+
+                <TrackVisibilitySwitch
+                  visible={visibleOnTrack}
+                  onToggle={() => onToggleDriverTrackVisibility(d.driver_number)}
+                />
               </div>
             );
           })
