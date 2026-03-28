@@ -1,73 +1,139 @@
-# React + TypeScript + Vite
+# 🏎️ F1 App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A live F1 race tracker built with React. Shows driver positions on the track in real time, lets you replay everyone's best lap side-by-side, and includes a satellite map view of each circuit.
 
-Currently, two official plugins are available:
+Data comes from the free [OpenF1 API](https://openf1.org) — no account needed.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## What it looks like
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Live view** — colored dots for each driver moving around the track in real time
+- **Replay mode** — watch every driver's best lap overlaid on the same track, with a live timing tower
+- **Map view** — satellite imagery of the actual circuit with the track outline drawn on top
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Getting started (brand new laptop)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Follow these steps in order. You only need to do the installs once.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Step 1 — Install Node.js
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Node.js is the engine that runs JavaScript on your computer. npm (the package manager) comes bundled with it.
+
+1. Go to **[nodejs.org](https://nodejs.org)**
+2. Click the big **"LTS"** download button (the recommended version)
+3. Open the downloaded file and follow the installer — just keep clicking Next/Continue
+4. When it's done, open **Terminal** (Mac) or **Command Prompt** (Windows) and type:
+
+```
+node --version
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+You should see something like `v22.0.0`. If you do, Node is installed. ✅
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Step 2 — Install Git
+
+Git lets you download and track changes to code.
+
+**Mac:** Git is usually already installed. Check by typing in Terminal:
 ```
+git --version
+```
+If it's not found, go to **[git-scm.com](https://git-scm.com)** and download the installer.
+
+**Windows:** Go to **[git-scm.com](https://git-scm.com)**, download, and install. During install, leave all the default options selected.
+
+---
+
+### Step 3 — Install a code editor (recommended)
+
+Visual Studio Code is free and beginner-friendly.
+
+1. Go to **[code.visualstudio.com](https://code.visualstudio.com)**
+2. Download and install it
+
+---
+
+### Step 4 — Download the project
+
+Open Terminal (Mac) or Command Prompt (Windows) and run these commands one at a time:
+
+```bash
+git clone https://github.com/therealtonynguyen/f1app.git
+cd f1app
+npm install
+```
+
+- `git clone` downloads all the code to your computer
+- `cd f1app` moves into the project folder
+- `npm install` downloads all the libraries the app needs (this may take a minute)
+
+---
+
+### Step 5 — Run the app
+
+```bash
+npm run dev
+```
+
+You'll see output like:
+
+```
+  VITE v8.0.0  ready in 300ms
+
+  ➜  Local:   http://localhost:5173/
+```
+
+Open your browser and go to **[http://localhost:5173](http://localhost:5173)**
+
+The app is running! 🎉
+
+To stop it, go back to Terminal and press **Ctrl + C**.
+
+---
+
+## Making changes
+
+1. Open the `f1app` folder in VS Code: **File → Open Folder**
+2. Edit any file inside `src/`
+3. The browser will automatically update as you save — no need to restart
+
+The main files to know about:
+
+| File | What it does |
+|------|-------------|
+| `src/App.tsx` | The root of the app, wires everything together |
+| `src/components/TrackMap.tsx` | Draws the track and driver dots |
+| `src/components/DriverPanel.tsx` | The right-side driver list and telemetry |
+| `src/components/MapView.tsx` | The satellite map view |
+| `src/hooks/useF1Data.ts` | Fetches live session data from OpenF1 |
+| `src/hooks/useLapReplay.ts` | Handles the best lap replay logic |
+| `src/api/openf1.ts` | All the API calls to OpenF1 |
+
+---
+
+## Saving your changes back to GitHub
+
+After making changes you want to keep:
+
+```bash
+git add .
+git commit -m "describe what you changed"
+git push
+```
+
+---
+
+## Tech stack
+
+- [React](https://react.dev) + [TypeScript](https://www.typescriptlang.org) — UI framework
+- [Vite](https://vitejs.dev) — fast development server and build tool
+- [Tailwind CSS](https://tailwindcss.com) — styling
+- [Leaflet](https://leafletjs.com) + [react-leaflet](https://react-leaflet.js.org) — satellite map
+- [OpenF1 API](https://openf1.org) — free F1 telemetry and position data
+- [Jolpica F1 API](https://jolpi.ca) — circuit metadata
+- [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) — circuit GeoJSON outlines
