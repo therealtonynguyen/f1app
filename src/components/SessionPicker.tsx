@@ -1,51 +1,56 @@
 import { useState, useEffect, useCallback } from 'react';
-import * as api from '../api/openf1';
-import type { Meeting, Session } from '../types/openf1';
+import { ChevronDown, CheckCircle2, Radio } from 'lucide-react';
+import * as api from '@/api/openf1';
+import type { Meeting, Session } from '@/types/openf1';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface SessionPickerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   currentSessionKey: number | undefined;
   onSelect: (sessionKey: number) => void;
-  onClose: () => void;
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2].filter((y) => y >= 2023);
 
-// Map session_type / session_name to a short badge label
-function sessionBadge(s: Session): { label: string; accent: string } {
+type SessionStyle = { label: string; variant: 'default' | 'accent' | 'muted' | 'live' | 'ghost' };
+
+function sessionStyle(s: Session): SessionStyle {
   const t = s.session_type?.toLowerCase() ?? '';
   const n = s.session_name?.toLowerCase() ?? '';
-  if (t === 'race' && !n.includes('sprint')) return { label: 'Race', accent: '#ff453a' };
-  if (t === 'race' && n.includes('sprint')) return { label: 'Sprint', accent: '#ff9f0a' };
-  if (t === 'qualifying' && !n.includes('sprint')) return { label: 'Quali', accent: '#0a84ff' };
-  if (t === 'qualifying' && n.includes('sprint')) return { label: 'SQ', accent: '#bf5af2' };
-  if (n.includes('practice 1') || n.includes('fp1')) return { label: 'FP1', accent: '#30d158' };
-  if (n.includes('practice 2') || n.includes('fp2')) return { label: 'FP2', accent: '#30d158' };
-  if (n.includes('practice 3') || n.includes('fp3')) return { label: 'FP3', accent: '#30d158' };
-  return { label: s.session_name ?? t, accent: '#636366' };
+  if (t === 'race' && !n.includes('sprint')) return { label: 'Race',   variant: 'default' };
+  if (n.includes('sprint') && t === 'race')  return { label: 'Sprint', variant: 'default' };
+  if (t === 'qualifying' && !n.includes('sprint')) return { label: 'Quali', variant: 'accent' };
+  if (n.includes('sprint'))                        return { label: 'SQ',    variant: 'accent' };
+  if (n.includes('1'))  return { label: 'FP1', variant: 'muted' };
+  if (n.includes('2'))  return { label: 'FP2', variant: 'muted' };
+  if (n.includes('3'))  return { label: 'FP3', variant: 'muted' };
+  return { label: s.session_name ?? t, variant: 'ghost' };
 }
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return '';
-  }
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch { return ''; }
 }
 
-function getRound(meetings: Meeting[], meeting: Meeting): number {
-  return meetings.indexOf(meeting) + 1;
-}
-
-export function SessionPicker({ currentSessionKey, onSelect, onClose }: SessionPickerProps) {
+export function SessionPicker({ open, onOpenChange, currentSessionKey, onSelect }: SessionPickerProps) {
   const [year, setYear] = useState(CURRENT_YEAR);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [meetingsLoading, setMeetingsLoading] = useState(false);
   const [meetingsError, setMeetingsError] = useState<string | null>(null);
-  const [expandedMeetingKey, setExpandedMeetingKey] = useState<number | null>(null);
+  const [expandedKey, setExpandedKey] = useState<number | null>(null);
   const [sessionsByMeeting, setSessionsByMeeting] = useState<Map<number, Session[]>>(new Map());
   const [sessionsLoading, setSessionsLoading] = useState<Set<number>>(new Set());
 
@@ -53,10 +58,9 @@ export function SessionPicker({ currentSessionKey, onSelect, onClose }: SessionP
     setMeetingsLoading(true);
     setMeetingsError(null);
     setMeetings([]);
-    setExpandedMeetingKey(null);
+    setExpandedKey(null);
     try {
-      const data = await api.fetchMeetings(y);
-      setMeetings(data);
+      setMeetings(await api.fetchMeetings(y));
     } catch (err) {
       setMeetingsError(err instanceof Error ? err.message : 'Failed to load races');
     } finally {
@@ -64,236 +68,149 @@ export function SessionPicker({ currentSessionKey, onSelect, onClose }: SessionP
     }
   }, []);
 
-  useEffect(() => {
-    loadMeetings(year);
-  }, [year, loadMeetings]);
+  useEffect(() => { if (open) loadMeetings(year); }, [open, year, loadMeetings]);
 
-  const toggleMeeting = useCallback(
-    async (meetingKey: number) => {
-      if (expandedMeetingKey === meetingKey) {
-        setExpandedMeetingKey(null);
-        return;
-      }
-      setExpandedMeetingKey(meetingKey);
-      if (sessionsByMeeting.has(meetingKey)) return;
-
-      setSessionsLoading((prev) => new Set(prev).add(meetingKey));
-      try {
-        const sessions = await api.fetchSessionsForMeeting(meetingKey);
-        setSessionsByMeeting((prev) => new Map(prev).set(meetingKey, sessions));
-      } catch {
-        setSessionsByMeeting((prev) => new Map(prev).set(meetingKey, []));
-      } finally {
-        setSessionsLoading((prev) => {
-          const next = new Set(prev);
-          next.delete(meetingKey);
-          return next;
-        });
-      }
-    },
-    [expandedMeetingKey, sessionsByMeeting]
-  );
+  const toggleMeeting = useCallback(async (key: number) => {
+    if (expandedKey === key) { setExpandedKey(null); return; }
+    setExpandedKey(key);
+    if (sessionsByMeeting.has(key)) return;
+    setSessionsLoading((p) => new Set(p).add(key));
+    try {
+      const sessions = await api.fetchSessionsForMeeting(key);
+      setSessionsByMeeting((p) => new Map(p).set(key, sessions));
+    } catch {
+      setSessionsByMeeting((p) => new Map(p).set(key, []));
+    } finally {
+      setSessionsLoading((p) => { const n = new Set(p); n.delete(key); return n; });
+    }
+  }, [expandedKey, sessionsByMeeting]);
 
   return (
-    /* Backdrop */
-    <div
-      className="fixed inset-0 z-[2000] flex flex-col justify-end sm:justify-center sm:items-center"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      {/* Sheet */}
-      <div
-        className="w-full sm:w-[480px] sm:max-w-[95vw] flex flex-col rounded-t-[20px] sm:rounded-[20px] overflow-hidden"
-        style={{
-          background: 'var(--ios-grouped)',
-          maxHeight: '88vh',
-          border: '0.5px solid rgba(255,255,255,0.1)',
-        }}
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 py-4 shrink-0"
-          style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
-        >
-          <h2 className="text-[17px] font-semibold text-white">Select Race</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-[15px] font-semibold transition-opacity active:opacity-60"
-            style={{ background: 'var(--ios-fill)', color: 'var(--ios-label-secondary)' }}
-          >
-            ✕
-          </button>
-        </div>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="max-h-[88vh] flex flex-col sm:max-w-lg sm:mx-auto">
+        <SheetHeader>
+          <SheetTitle>Select Session</SheetTitle>
+        </SheetHeader>
 
         {/* Year tabs */}
-        <div
-          className="flex gap-2 px-4 py-3 shrink-0"
-          style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
-        >
+        <div className="flex gap-2 px-5 py-3 border-b border-border/60 shrink-0">
           {YEARS.map((y) => (
-            <button
+            <Button
               key={y}
-              type="button"
+              variant={year === y ? 'secondary' : 'ghost'}
+              size="sm"
               onClick={() => setYear(y)}
-              className="px-4 py-1.5 rounded-full text-[13px] font-semibold transition-colors"
-              style={
-                year === y
-                  ? { background: 'var(--ios-blue)', color: '#fff' }
-                  : { background: 'var(--ios-fill)', color: 'var(--ios-label-secondary)' }
-              }
+              className={year === y ? 'text-foreground' : ''}
             >
               {y}
-            </button>
+            </Button>
           ))}
         </div>
 
-        {/* Meetings list */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Meeting list */}
+        <ScrollArea className="flex-1">
           {meetingsLoading && (
             <div className="flex items-center justify-center py-16">
-              <div
-                className="w-7 h-7 rounded-full border-2 border-transparent animate-spin"
-                style={{
-                  borderTopColor: 'var(--ios-blue)',
-                  borderRightColor: 'rgba(255,255,255,0.15)',
-                }}
-              />
+              <div className="h-6 w-6 rounded-full border-2 border-transparent border-t-accent animate-spin" />
             </div>
           )}
-
           {meetingsError && (
-            <div className="text-center py-10 px-6">
-              <p className="text-[13px]" style={{ color: 'var(--ios-label-secondary)' }}>
-                {meetingsError}
-              </p>
-              <button
-                type="button"
-                onClick={() => loadMeetings(year)}
-                className="mt-3 text-[13px] font-semibold"
-                style={{ color: 'var(--ios-blue)' }}
-              >
+            <div className="text-center py-10 px-6 space-y-3">
+              <p className="text-sm text-muted-foreground">{meetingsError}</p>
+              <Button variant="ghost" size="sm" onClick={() => loadMeetings(year)}>
                 Retry
-              </button>
+              </Button>
             </div>
           )}
-
           {!meetingsLoading && !meetingsError && meetings.length === 0 && (
-            <div className="text-center py-10">
-              <p className="text-[13px]" style={{ color: 'var(--ios-label-tertiary)' }}>
-                No races found for {year}
-              </p>
-            </div>
+            <p className="text-center py-10 text-sm text-muted-foreground">
+              No races found for {year}
+            </p>
           )}
 
-          {meetings.map((meeting) => {
-            const isExpanded = expandedMeetingKey === meeting.meeting_key;
+          {meetings.map((meeting, idx) => {
+            const isExpanded = expandedKey === meeting.meeting_key;
             const sessions = sessionsByMeeting.get(meeting.meeting_key);
             const isLoadingSessions = sessionsLoading.has(meeting.meeting_key);
-            const round = getRound(meetings, meeting);
 
             return (
               <div key={meeting.meeting_key}>
+                {idx > 0 && <Separator />}
+
                 {/* Meeting row */}
                 <button
                   type="button"
                   onClick={() => toggleMeeting(meeting.meeting_key)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors active:opacity-70"
-                  style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
+                  className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-secondary/40 transition-colors"
                 >
-                  {/* Round badge */}
-                  <span
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-                    style={{ background: 'var(--ios-fill)', color: 'var(--ios-label-secondary)' }}
-                  >
-                    R{round}
+                  <span className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0">
+                    R{idx + 1}
                   </span>
-
                   <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-semibold text-white truncate">
+                    <p className="text-[14px] font-semibold text-foreground truncate">
                       {meeting.meeting_name}
                     </p>
-                    <p className="text-[12px] mt-0.5 truncate" style={{ color: 'var(--ios-label-secondary)' }}>
+                    <p className="text-[12px] text-muted-foreground mt-0.5 truncate">
                       {meeting.location} · {meeting.country_name} · {formatDate(meeting.date_start)}
                     </p>
                   </div>
-
-                  <span
-                    className="text-[12px] font-medium shrink-0 transition-transform duration-200"
-                    style={{
-                      color: 'var(--ios-label-tertiary)',
-                      transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                      display: 'inline-block',
-                    }}
-                  >
-                    ▾
-                  </span>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200',
+                      isExpanded && 'rotate-180'
+                    )}
+                  />
                 </button>
 
-                {/* Sessions list (expanded) */}
+                {/* Expanded sessions */}
                 {isExpanded && (
-                  <div style={{ background: 'var(--ios-grouped-secondary)' }}>
+                  <div className="bg-secondary/20">
                     {isLoadingSessions && (
-                      <div className="flex items-center justify-center py-4">
-                        <div
-                          className="w-5 h-5 rounded-full border-2 border-transparent animate-spin"
-                          style={{
-                            borderTopColor: 'var(--ios-blue)',
-                            borderRightColor: 'rgba(255,255,255,0.1)',
-                          }}
-                        />
+                      <div className="flex justify-center py-4">
+                        <div className="h-5 w-5 rounded-full border-2 border-transparent border-t-accent animate-spin" />
                       </div>
                     )}
                     {sessions?.length === 0 && !isLoadingSessions && (
-                      <p className="text-center py-4 text-[12px]" style={{ color: 'var(--ios-label-tertiary)' }}>
+                      <p className="text-center py-4 text-xs text-muted-foreground">
                         No session data available
                       </p>
                     )}
-                    {sessions?.map((session) => {
-                      const { label, accent } = sessionBadge(session);
+                    {sessions?.map((session, si) => {
+                      const { label, variant } = sessionStyle(session);
                       const isCurrent = session.session_key === currentSessionKey;
+                      const isLive = session.status === 'started';
                       return (
-                        <button
-                          key={session.session_key}
-                          type="button"
-                          onClick={() => {
-                            onSelect(session.session_key);
-                            onClose();
-                          }}
-                          className="w-full flex items-center gap-3 px-5 py-3 text-left transition-opacity active:opacity-60"
-                          style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
-                        >
-                          {/* Session type badge */}
-                          <span
-                            className="text-[11px] font-bold px-2 py-0.5 rounded-md shrink-0"
-                            style={{ background: `${accent}22`, color: accent, minWidth: 36, textAlign: 'center' }}
+                        <div key={session.session_key}>
+                          {si > 0 && <Separator className="ml-14" />}
+                          <button
+                            type="button"
+                            onClick={() => { onSelect(session.session_key); onOpenChange(false); }}
+                            className={cn(
+                              'w-full flex items-center gap-3 px-5 py-3 text-left transition-colors',
+                              isCurrent
+                                ? 'bg-accent/10'
+                                : 'hover:bg-secondary/40'
+                            )}
                           >
-                            {label}
-                          </span>
-
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium text-white truncate">
-                              {session.session_name}
-                            </p>
-                            <p className="text-[11px] mt-0.5" style={{ color: 'var(--ios-label-tertiary)' }}>
-                              {formatDate(session.date_start)}
-                              {session.status && (
-                                <span
-                                  className="ml-2 font-semibold"
-                                  style={{ color: session.status === 'started' ? 'var(--ios-green)' : 'var(--ios-label-tertiary)' }}
-                                >
-                                  {session.status === 'started' ? '● Live' : session.status}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-
-                          {isCurrent && (
-                            <span className="text-[11px] font-semibold shrink-0" style={{ color: 'var(--ios-blue)' }}>
-                              ✓ Active
-                            </span>
-                          )}
-                        </button>
+                            <Badge variant={isLive ? 'live' : variant} className="w-10 justify-center shrink-0">
+                              {isLive ? <Radio className="h-2.5 w-2.5" /> : label}
+                            </Badge>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-medium text-foreground truncate">
+                                {session.session_name}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                {formatDate(session.date_start)}
+                                {isLive && (
+                                  <span className="ml-2 text-green-400 font-semibold">● Live now</span>
+                                )}
+                              </p>
+                            </div>
+                            {isCurrent && (
+                              <CheckCircle2 className="h-4 w-4 text-accent shrink-0" />
+                            )}
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -301,8 +218,8 @@ export function SessionPicker({ currentSessionKey, onSelect, onClose }: SessionP
               </div>
             );
           })}
-        </div>
-      </div>
-    </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 }

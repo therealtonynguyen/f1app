@@ -172,18 +172,16 @@ export default function App() {
         onModeChange={session ? handleModeChange : undefined}
       />
 
-      {sessionPickerOpen && (
-        <SessionPicker
-          currentSessionKey={session?.session_key}
-          onSelect={(sessionKey) => {
-            // Reset replay when switching sessions
-            replay.pause();
-            setMode('live');
-            loadSession(sessionKey);
-          }}
-          onClose={() => setSessionPickerOpen(false)}
-        />
-      )}
+      <SessionPicker
+        open={sessionPickerOpen}
+        onOpenChange={setSessionPickerOpen}
+        currentSessionKey={session?.session_key}
+        onSelect={(sessionKey) => {
+          replay.pause();
+          setMode('live');
+          loadSession(sessionKey);
+        }}
+      />
 
       {error ? (
         <div

@@ -1,5 +1,9 @@
-import type { Session } from '../types/openf1';
-import type { AppMode } from '../types/appMode';
+import { RefreshCw, ChevronDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import type { Session } from '@/types/openf1';
+import type { AppMode } from '@/types/appMode';
 
 type HeaderProps = {
   session: Session | null;
@@ -13,18 +17,11 @@ type HeaderProps = {
 };
 
 const MODES: { id: AppMode; label: string }[] = [
-  { id: 'live', label: 'Live' },
-  { id: 'replay', label: 'Replay' },
-  { id: 'graphs', label: 'Graphs' },
-  { id: 'map', label: 'Map' },
+  { id: 'live',    label: 'Live'    },
+  { id: 'replay',  label: 'Replay'  },
+  { id: 'graphs',  label: 'Graphs'  },
+  { id: 'map',     label: 'Map'     },
 ];
-
-function sessionTitle(session: Session | null): string {
-  if (!session) return 'F1';
-  const name = session.session_name?.trim();
-  if (name) return name;
-  return [session.location, session.session_type].filter(Boolean).join(' · ') || 'Session';
-}
 
 export function Header({
   session,
@@ -36,8 +33,6 @@ export function Header({
   mode,
   onModeChange,
 }: HeaderProps) {
-  const title = sessionTitle(session);
-
   return (
     <header
       className="ios-nav-blur shrink-0 z-20"
@@ -49,101 +44,77 @@ export function Header({
       }}
     >
       <div className="flex flex-col gap-2.5">
-        <div className="flex items-center gap-3 min-h-[36px] sm:gap-4">
-          <div
-            className="app-logo-mark shrink-0"
-            role="img"
-            aria-label="F1 Track"
-          >
+        {/* Top row */}
+        <div className="flex items-center gap-3 min-h-[36px]">
+          {/* Logo */}
+          <div className="app-logo-mark shrink-0" role="img" aria-label="F1 Track">
             <span className="app-logo-f1">F1</span>
             <span className="app-logo-rest">Track</span>
           </div>
+
+          {/* Session info */}
           <div className="min-w-0 flex-1">
-            <h1 className="text-[17px] font-semibold tracking-tight text-white truncate leading-tight">
-              {title}
-            </h1>
-            {session && (
-              <div className="flex items-center gap-3 mt-0.5">
-                {isLive && (
-                  <span className="inline-flex items-center gap-2 text-[12px] font-medium text-[rgba(235,235,245,0.55)]">
-                    <span
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{
-                        background: 'var(--ios-green)',
-                        boxShadow: '0 0 0 2px rgba(48,209,88,0.25)',
-                      }}
-                    />
-                    Live
-                  </span>
-                )}
-                {isLoadingTrack && (
-                  <span className="text-[12px] font-medium text-[rgba(235,235,245,0.45)]">
-                    Track…
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {onOpenSessionPicker && (
+            {session ? (
               <button
                 type="button"
                 onClick={onOpenSessionPicker}
-                className="h-9 px-3 rounded-full text-[13px] font-semibold transition-opacity active:opacity-65"
-                style={{ background: 'var(--ios-fill)', color: 'var(--ios-blue)' }}
-                aria-label="Change race"
+                disabled={!onOpenSessionPicker}
+                className="flex items-center gap-1 group text-left disabled:cursor-default"
               >
-                Change
+                <span className="text-[15px] font-semibold text-foreground truncate leading-tight">
+                  {session.location}
+                </span>
+                <span className="text-[13px] text-muted-foreground truncate hidden sm:block">
+                  · {session.session_name}
+                </span>
+                {onOpenSessionPicker && (
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+                )}
               </button>
+            ) : (
+              <span className="text-[15px] text-muted-foreground">Connecting…</span>
             )}
-            <button
-              type="button"
+
+            {/* Sub-row: live badge + loading state */}
+            <div className="flex items-center gap-2 mt-0.5">
+              {isLive && (
+                <Badge variant="live" className="gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                  Live
+                </Badge>
+              )}
+              {isLoadingTrack && (
+                <span className="text-[11px] text-muted-foreground animate-pulse">Track…</span>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onRefresh}
               disabled={isLoading}
-              className="h-9 min-w-[36px] px-3 rounded-full text-[15px] font-semibold transition-opacity active:opacity-65 disabled:opacity-35"
-              style={{ background: 'var(--ios-fill)', color: 'var(--ios-blue)' }}
               aria-label="Refresh"
+              className="h-8 w-8"
             >
-              {isLoading ? '…' : '↻'}
-            </button>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
         </div>
 
+        {/* Mode tabs */}
         {onModeChange && (
-          <div
-            className="flex p-1 rounded-[10px] w-full gap-0.5"
-            style={{ background: 'var(--ios-fill)' }}
-            role="tablist"
-            aria-label="View mode"
-          >
-            {MODES.map(({ id, label }) => {
-              const active = mode === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => onModeChange(id)}
-                  className="flex-1 min-w-0 py-2 px-2 rounded-[8px] text-[11px] font-semibold transition-[background,color,box-shadow] duration-200 ease-out sm:text-[12px]"
-                  style={
-                    active
-                      ? {
-                          background: 'rgba(120, 120, 128, 0.36)',
-                          color: '#fff',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
-                        }
-                      : {
-                          background: 'transparent',
-                          color: 'rgba(235,235,245,0.55)',
-                        }
-                  }
-                >
+          <Tabs value={mode} onValueChange={(v) => onModeChange(v as AppMode)}>
+            <TabsList className="w-full">
+              {MODES.map(({ id, label }) => (
+                <TabsTrigger key={id} value={id} className="flex-1">
                   {label}
-                </button>
-              );
-            })}
-          </div>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         )}
       </div>
     </header>
