@@ -44,7 +44,9 @@ export function localToLatLngBbox(
   maxX: number,
   minY: number,
   maxY: number,
-  coordinates: [number, number][]
+  coordinates: [number, number][],
+  /** Pass true if OpenF1 Y increases southward (screen-coords convention). */
+  flipY = false
 ): [number, number] {
   let minLat = Infinity;
   let maxLat = -Infinity;
@@ -60,7 +62,10 @@ export function localToLatLngBbox(
   const ry = maxY - minY || 1;
   const u = (x - minX) / rx;
   const v = (y - minY) / ry;
-  const lat = minLat + v * (maxLat - minLat);
+  // flipY: OpenF1 Y=0 is at the top (south), increasing downward — flip to match geographic north-up
+  const lat = flipY
+    ? maxLat - v * (maxLat - minLat)
+    : minLat + v * (maxLat - minLat);
   const lng = minLng + u * (maxLng - minLng);
   return [lat, lng];
 }
@@ -187,8 +192,17 @@ function fitAffineZ(samples: XY[], z: number[]): [number, number, number] | null
 }
 
 /**
- * Map OpenF1 telemetry (x, y) to [lat, lng] by fitting an affine transform from
- * the reference lap outline to the GeoJSON circuit polyline (arc-length resampling).
+ * Map OpenF1 telemetry (x, y) → [lat, lng] by fitting an affine transform from
+ * the reference lap outline to the GeoJSON circuit polyline.
+ *
+ * The hard part: the telemetry lap starts at a timing gate (e.g. start/finish)
+ * while the GeoJSON polyline can start at any arbitrary point on the circuit.
+ * Simple arc-length pairing gets the wrong point correspondences and produces
+ * a badly misaligned projection.
+ *
+ * Fix: search over OFFSET_STEPS cyclic offsets × 2 orientations (CW / CCW),
+ * fit an affine transform for each, and keep the one with the lowest MSE.
+ * Typical runtime: ~72 tiny least-squares fits on N=96 points — negligible.
  */
 export function buildTelemetryToLatLngProjector(
   trackOutline: Location[],
@@ -200,25 +214,61 @@ export function buildTelemetryToLatLngProjector(
   const telem: XY[] = sorted.map((p) => ({ x: p.x, y: p.y }));
   const geoPts: LatLng[] = geoCoordinates.map(([lng, lat]) => ({ lat, lng }));
 
-  const n = Math.min(
-    200,
-    Math.max(24, Math.min(Math.floor(telem.length / 2), geoPts.length * 2))
-  );
-  const tSamp = samplePolyline(telem, n);
-  const gSamp = samplePolylineGeo(geoPts, n);
+  // Number of evenly-spaced sample points on each polyline.
+  const N = Math.min(96, Math.max(24, Math.min(Math.floor(telem.length / 3), 96)));
 
-  const latFit = fitAffineZ(
-    tSamp,
-    gSamp.map((g) => g.lat)
-  );
-  const lngFit = fitAffineZ(
-    tSamp,
-    gSamp.map((g) => g.lng)
-  );
-  if (!latFit || !lngFit) return null;
+  // Number of cyclic offsets to try (evenly distributed around the loop).
+  const OFFSET_STEPS = 36;
 
-  const [al, bl, cl] = latFit;
-  const [ad, bd, cd] = lngFit;
+  const tSamp = samplePolyline(telem, N);
+  const gSampFwd = samplePolylineGeo(geoPts, N);
+  const gSampRev = [...gSampFwd].reverse(); // try CCW orientation too
+
+  let bestMSE = Infinity;
+  let bestLatFit: [number, number, number] | null = null;
+  let bestLngFit: [number, number, number] | null = null;
+
+  for (const gDir of [gSampFwd, gSampRev]) {
+    for (let ki = 0; ki < OFFSET_STEPS; ki++) {
+      const offset = Math.round((ki / OFFSET_STEPS) * N);
+
+      // Cyclically shift the GeoJSON samples so index 0 aligns with
+      // whatever physical location the telemetry lap started at.
+      const gShifted = offset === 0
+        ? gDir
+        : [...gDir.slice(offset), ...gDir.slice(0, offset)];
+
+      const latFit = fitAffineZ(tSamp, gShifted.map((g) => g.lat));
+      const lngFit = fitAffineZ(tSamp, gShifted.map((g) => g.lng));
+      if (!latFit || !lngFit) continue;
+
+      const [al, bl, cl] = latFit;
+      const [ad, bd, cd] = lngFit;
+
+      // Mean squared residual in (lat, lng) — lower is better alignment.
+      let mse = 0;
+      for (let i = 0; i < N; i++) {
+        const { x, y } = tSamp[i];
+        const dLat = al * x + bl * y + cl - gShifted[i].lat;
+        const dLng = ad * x + bd * y + cd - gShifted[i].lng;
+        mse += dLat * dLat + dLng * dLng;
+      }
+      mse /= N;
+
+      if (mse < bestMSE) {
+        bestMSE = mse;
+        bestLatFit = latFit;
+        bestLngFit = lngFit;
+      }
+    }
+  }
+
+  if (!bestLatFit || !bestLngFit) return null;
+
+  const [al, bl, cl] = bestLatFit;
+  const [ad, bd, cd] = bestLngFit;
+
+  console.log(`[telemetryGeoAlign] Best fit MSE: ${bestMSE.toExponential(3)} (lat/lng²)`);
 
   return (x: number, y: number) => [al * x + bl * y + cl, ad * x + bd * y + cd] as [number, number];
 }
