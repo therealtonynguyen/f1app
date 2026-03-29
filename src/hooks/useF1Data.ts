@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from '../api/openf1';
+import { OpenF1Error } from '../api/openf1';
 import type {
   Session,
   Driver,
@@ -114,12 +115,15 @@ export function useF1Data(_initialSessionKey?: number) {
         setIntervals(latestByDriver(intervalsData));
       }
     } catch (err) {
-      // Don't crash the app on poll errors — just log them
-      console.warn('Live data poll failed:', err instanceof Error ? err.message : err);
+      // Transient errors (rate limit, network blip) — silently skip this poll tick.
+      // Non-transient errors get a warn so they're visible in DevTools but never
+      // surface to the user as they're mid-session.
+      if (err instanceof OpenF1Error && err.transient) return;
+      console.warn('[useF1Data] Poll error (non-fatal):', err instanceof Error ? err.message : err);
     }
   }, []);
 
-  const initialize = useCallback(async (overrideSessionKey?: number) => {
+  const initialize = useCallback(async (overrideSessionKey?: number, attempt = 0) => {
     setIsLoading(true);
     setError(null);
     // Clear stale data when switching sessions
@@ -169,6 +173,15 @@ export function useF1Data(_initialSessionKey?: number) {
       await updateLiveData(sessionData);
 
     } catch (err) {
+      // Transient error during init (rate limit / network blip that survived all
+      // apiFetch retries) — silently retry the whole init once after a short delay
+      // rather than showing an error screen.
+      if (err instanceof OpenF1Error && err.transient && attempt === 0) {
+        console.warn('[useF1Data] Transient init error, retrying once…', err.message);
+        setIsLoading(false);
+        await new Promise((r) => setTimeout(r, 2000));
+        return initialize(overrideSessionKey, 1);
+      }
       const msg = err instanceof Error ? err.message : 'Failed to load session data.';
       console.error('[useF1Data] Initialization failed:', err);
       setError(msg);

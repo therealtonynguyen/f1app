@@ -1,4 +1,6 @@
 import type { Session, Meeting, Driver, Location, Position, Interval, Lap, CarData } from '../types/openf1';
+import { RateLimiter } from '../lib/rateLimiter';
+import { API_CONFIG } from '../config/api';
 
 /**
  * Production: call OpenF1 directly. Dev: same-origin `/api/openf1` (Vite proxy) avoids some CORS/network quirks.
@@ -12,24 +14,57 @@ function openF1Base(): string {
 }
 
 export class OpenF1Error extends Error {
-  constructor(message: string) {
+  /** If true this is a retriable transient failure (rate limit / network blip). */
+  readonly transient: boolean;
+
+  constructor(message: string, transient = false) {
     super(message);
     this.name = 'OpenF1Error';
+    this.transient = transient;
   }
 }
 
-async function apiFetch<T>(path: string): Promise<T[]> {
+// Singleton rate limiter — shared across all API calls in this module.
+const limiter = new RateLimiter(API_CONFIG.requestsPerSecond);
+
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+async function apiFetch<T>(path: string, attempt = 0): Promise<T[]> {
+  // Throttle: wait for a token before firing the request
+  await limiter.acquire();
+
   const url = `${openF1Base()}${path}`;
   let res: Response;
   try {
     res = await fetch(url);
   } catch (e) {
+    // Network-level failure (offline, CORS, DNS) — retry up to maxRetries
+    if (attempt < API_CONFIG.maxRetries) {
+      const delay = API_CONFIG.retryBaseDelayMs * 2 ** attempt;
+      console.warn(`[OpenF1] Network error on attempt ${attempt + 1}, retrying in ${delay}ms…`, e);
+      await sleep(delay);
+      return apiFetch(path, attempt + 1);
+    }
     const raw = e instanceof Error ? e.message : String(e);
     const hint =
       raw === 'Failed to fetch' || raw.includes('fetch')
-        ? ' The browser could not reach the API. Try: different network or VPN off, disable ad blockers for this app, allow api.openf1.org in firewall, or run `npm run dev` (uses a local proxy).'
+        ? ' Check network, ad blockers, or run `npm run dev` (uses a local proxy).'
         : '';
-    throw new OpenF1Error(`Network error: ${raw}.${hint}`);
+    throw new OpenF1Error(`Network error: ${raw}.${hint}`, true);
+  }
+
+  // Rate limited — back off and retry silently
+  if (res.status === 429) {
+    if (attempt < API_CONFIG.maxRetries) {
+      const delay = API_CONFIG.retryBaseDelayMs * 2 ** attempt;
+      console.warn(`[OpenF1] Rate limited (429) on attempt ${attempt + 1}, retrying in ${delay}ms…`);
+      await sleep(delay);
+      return apiFetch(path, attempt + 1);
+    }
+    // All retries exhausted — throw transient so callers can silently swallow it
+    throw new OpenF1Error('Rate limit exceeded after retries. Skipping this request.', true);
   }
 
   let data: unknown;
