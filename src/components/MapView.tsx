@@ -1,8 +1,64 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { CircuitMeta, GeoCircuit } from '../hooks/useCircuitData';
-import type { DriverWithData } from '../types/openf1';
+import type { ReplayPoint, ReplayTelemetryBounds } from '../hooks/useLapReplay';
+import type { DriverWithData, Location } from '../types/openf1';
+import {
+  boundsFromLocations,
+  buildTelemetryToLatLngProjector,
+  localToLatLngBbox,
+} from '../lib/telemetryGeoAlign';
+import { metersPerUnitFromTrackOutline, speedKmhFromReplayTrail } from '../lib/locationSpeed';
+
+function buildDriverHighlightBubble(opts: {
+  acronym: string;
+  speedText: string;
+  headshotUrl?: string;
+  teamColourHex: string;
+}): HTMLElement {
+  const { acronym, speedText, headshotUrl, teamColourHex } = opts;
+  const root = document.createElement('div');
+  root.className = 'driver-speed-bubble-inner';
+
+  const topRow = document.createElement('div');
+  topRow.className = 'driver-speed-bubble-top';
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'driver-speed-bubble-acronym';
+  nameEl.textContent = acronym;
+  topRow.appendChild(nameEl);
+
+  const photoRing = document.createElement('div');
+  photoRing.className = 'driver-speed-bubble-photo-ring';
+  photoRing.style.borderColor = `#${teamColourHex || 'ffffff'}`;
+
+  if (headshotUrl) {
+    const img = document.createElement('img');
+    img.className = 'driver-speed-bubble-photo';
+    img.src = headshotUrl;
+    img.alt = '';
+    img.referrerPolicy = 'no-referrer';
+    img.addEventListener('error', () => {
+      photoRing.classList.add('driver-speed-bubble-photo-ring--empty');
+      img.remove();
+    });
+    photoRing.appendChild(img);
+  } else {
+    photoRing.classList.add('driver-speed-bubble-photo-ring--empty');
+  }
+
+  topRow.appendChild(photoRing);
+
+  const speedEl = document.createElement('div');
+  speedEl.className = 'driver-speed-bubble-speedline';
+  speedEl.textContent = speedText;
+
+  root.appendChild(topRow);
+  root.appendChild(speedEl);
+
+  return root;
+}
 
 // Fix Leaflet's broken default icon paths when bundled with Vite
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,35 +75,121 @@ interface MapViewProps {
   isLoading: boolean;
   error: string | null;
   drivers: DriverWithData[];
+  /** Reference lap from OpenF1 — aligns telemetry x/y to the GeoJSON circuit. */
+  trackOutline: Location[];
   selectedDriverNumber: number | null;
   onSelectDriver: (n: number | null) => void;
+  /** Driver numbers to omit from the map (markers and replay trails). */
+  driversHiddenOnTrack?: Set<number>;
+  /** When set, markers use replay positions instead of live GPS. */
+  replayPositions?: Map<number, { x: number; y: number }>;
+  replayTrails?: Map<number, ReplayPoint[]>;
+  /** Full-lap telemetry bbox for replay; keeps projection stable while trails grow. */
+  replayTelemetryBounds?: ReplayTelemetryBounds | null;
 }
 
-// Convert OpenF1 local XY to approximate lat/lng using the circuit's geographic
-// bounding box derived from the GeoJSON coordinates.
-function localToLatLng(
-  x: number,
-  y: number,
-  trackMinX: number,
-  trackMaxX: number,
-  trackMinY: number,
-  trackMaxY: number,
-  geoCoords: [number, number][] // [lng, lat]
-): [number, number] {
-  const lngs = geoCoords.map((c) => c[0]);
-  const lats = geoCoords.map((c) => c[1]);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
+type LocalBounds = { minX: number; maxX: number; minY: number; maxY: number };
 
-  const tX = (x - trackMinX) / (trackMaxX - trackMinX || 1);
-  const tY = (y - trackMinY) / (trackMaxY - trackMinY || 1);
+const EMPTY_HIDDEN = new Set<number>();
 
-  // OpenF1 Y axis is typically inverted relative to lat (north-up)
-  const lat = minLat + tY * (maxLat - minLat);
-  const lng = minLng + tX * (maxLng - minLng);
-  return [lat, lng];
+/** Reference zoom for mild size tweaks only (markers stay nearly fixed on screen). */
+const MAP_ZOOM_STYLE_REF = 16;
+
+/** Very gentle zoom scaling so dots barely grow/shrink. */
+const ZOOM_SIZE_CURVE = 0.1;
+
+/** Min distance (deg ≈ lat/lng) before appending a live trail point — ~2 m */
+const LIVE_TRAIL_MIN_STEP_DEG = 2e-5;
+
+const LIVE_TRAIL_MAX_POINTS = 2500;
+
+function mapZoomScale(zoom: number): number {
+  const dz = MAP_ZOOM_STYLE_REF - zoom;
+  return Math.pow(2, dz * ZOOM_SIZE_CURVE);
+}
+
+function scaledMarkerRadius(basePx: number, zoom: number): number {
+  const s = mapZoomScale(zoom);
+  return Math.max(4.5, Math.min(22, basePx * s));
+}
+
+function scaledOutlineWeight(basePx: number, zoom: number): number {
+  const s = mapZoomScale(zoom);
+  return Math.max(0.75, Math.min(3.5, basePx * s));
+}
+
+function scaledTrailWeight(basePx: number, zoom: number): number {
+  const s = mapZoomScale(zoom);
+  return Math.max(0.5, Math.min(3.5, basePx * s));
+}
+
+function computeTelemetryBounds(
+  drivers: DriverWithData[],
+  replayPositions: Map<number, { x: number; y: number }> | undefined,
+  replayTrails: Map<number, ReplayPoint[]> | undefined
+): LocalBounds | null {
+  const xs: number[] = [];
+  const ys: number[] = [];
+
+  if (replayPositions !== undefined) {
+    replayPositions.forEach((p) => {
+      xs.push(p.x);
+      ys.push(p.y);
+    });
+    replayTrails?.forEach((pts) => {
+      for (const p of pts) {
+        xs.push(p.x);
+        ys.push(p.y);
+      }
+    });
+  } else {
+    for (const d of drivers) {
+      if (d.currentLocation) {
+        xs.push(d.currentLocation.x);
+        ys.push(d.currentLocation.y);
+      }
+    }
+  }
+
+  if (xs.length === 0) return null;
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minY: Math.min(...ys),
+    maxY: Math.max(...ys),
+  };
+}
+
+function mergeBounds(a: LocalBounds | null, b: LocalBounds | null): LocalBounds | null {
+  if (!a) return b;
+  if (!b) return a;
+  return {
+    minX: Math.min(a.minX, b.minX),
+    maxX: Math.max(a.maxX, b.maxX),
+    minY: Math.min(a.minY, b.minY),
+    maxY: Math.max(a.maxY, b.maxY),
+  };
+}
+
+function updateSpeedBubble(marker: L.CircleMarker, content: HTMLElement, offsetY: number) {
+  const tt = marker.getTooltip();
+  if (tt) {
+    tt.setContent(content);
+    tt.options.offset = L.point(0, offsetY);
+    tt.update();
+    return;
+  }
+  marker.bindTooltip(content, {
+    permanent: true,
+    direction: 'top',
+    className: 'driver-speed-bubble',
+    offset: L.point(0, offsetY),
+    opacity: 1,
+  });
+}
+
+function clearSpeedBubble(marker: L.CircleMarker) {
+  marker.unbindTooltip();
 }
 
 export function MapView({
@@ -56,13 +198,69 @@ export function MapView({
   isLoading,
   error,
   drivers,
+  trackOutline,
   selectedDriverNumber,
   onSelectDriver,
+  driversHiddenOnTrack,
+  replayPositions,
+  replayTrails,
+  replayTelemetryBounds,
 }: MapViewProps) {
+  const hiddenOnTrack = driversHiddenOnTrack ?? EMPTY_HIDDEN;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const trackLayerRef = useRef<L.Polyline | null>(null);
+  const [mapZoom, setMapZoom] = useState(MAP_ZOOM_STYLE_REF);
+  const trackGroupRef = useRef<L.LayerGroup | null>(null);
+  const trailsGroupRef = useRef<L.LayerGroup | null>(null);
   const driverLayersRef = useRef<Map<number, L.CircleMarker>>(new Map());
+  const livePathHistoryRef = useRef<Map<number, [number, number][]>>(new Map());
+  const livePathGroupRef = useRef<L.LayerGroup | null>(null);
+  /** Leaflet may still emit map click after a marker click; skip one clear. */
+  const skipNextMapDeselectRef = useRef(false);
+
+  const isReplayMode = replayPositions !== undefined;
+
+  const outlineBounds = useMemo(() => boundsFromLocations(trackOutline), [trackOutline]);
+
+  /**
+   * Never fold live car GPS into the projector bounds — that was shifting the whole map
+   * every poll (“following” drivers). Replay still merges replay extents for fallback fit.
+   */
+  const boundsForProjector = useMemo(() => {
+    if (isReplayMode && replayPositions) {
+      const rb =
+        replayTelemetryBounds ??
+        computeTelemetryBounds([], replayPositions, replayTrails);
+      return mergeBounds(outlineBounds, rb);
+    }
+    return outlineBounds;
+  }, [
+    isReplayMode,
+    replayPositions,
+    replayTelemetryBounds,
+    replayTrails,
+    outlineBounds,
+  ]);
+
+  const metersPerUnit = useMemo(
+    () => metersPerUnitFromTrackOutline(trackOutline),
+    [trackOutline]
+  );
+
+  /** Affine fit to circuit when outline is available; else axis-aligned bbox vs GeoJSON. */
+  const projectXY = useMemo((): ((x: number, y: number) => [number, number]) | null => {
+    if (!geo) return null;
+    if (trackOutline.length >= 10) {
+      const aff = buildTelemetryToLatLngProjector(trackOutline, geo.coordinates);
+      if (aff) return aff;
+    }
+    if (boundsForProjector) {
+      const b = boundsForProjector;
+      return (x, y) =>
+        localToLatLngBbox(x, y, b.minX, b.maxX, b.minY, b.maxY, geo.coordinates);
+    }
+    return null;
+  }, [geo, trackOutline, boundsForProjector]);
 
   // Initialise map once
   useEffect(() => {
@@ -71,7 +269,12 @@ export function MapView({
     const map = L.map(containerRef.current, {
       zoomControl: true,
       attributionControl: true,
+      scrollWheelZoom: true,
     });
+
+    const syncMapZoom = () => setMapZoom(map.getZoom());
+    map.on('zoom zoomend', syncMapZoom);
+    syncMapZoom();
 
     L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -82,7 +285,6 @@ export function MapView({
       }
     ).addTo(map);
 
-    // Labels overlay on top of satellite imagery
     L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
       { maxZoom: 19, opacity: 0.6 }
@@ -90,77 +292,172 @@ export function MapView({
 
     mapRef.current = map;
     return () => {
+      map.off('zoom zoomend', syncMapZoom);
       map.remove();
       mapRef.current = null;
     };
   }, []);
 
-  // Draw / update circuit track when GeoJSON changes
+  // Click empty map to clear driver selection (not when a driver dot was clicked)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const onMapClick = () => {
+      if (skipNextMapDeselectRef.current) {
+        skipNextMapDeselectRef.current = false;
+        return;
+      }
+      onSelectDriver(null);
+    };
+    map.on('click', onMapClick);
+    return () => {
+      map.off('click', onMapClick);
+    };
+  }, [onSelectDriver]);
+
+  // Live mode: accumulated paths are tied to this circuit; replay uses API trails only.
+  useEffect(() => {
+    livePathHistoryRef.current.clear();
+    livePathGroupRef.current?.clearLayers();
+  }, [geo?.bacingerName]);
+
+  useEffect(() => {
+    if (isReplayMode) {
+      livePathHistoryRef.current.clear();
+      livePathGroupRef.current?.clearLayers();
+    }
+  }, [isReplayMode]);
+
+  // Draw circuit: GeoJSON outline (live / replay)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !geo) return;
 
-    if (trackLayerRef.current) {
-      trackLayerRef.current.remove();
+    if (trackGroupRef.current) {
+      trackGroupRef.current.remove();
+      trackGroupRef.current = null;
     }
 
-    // GeoJSON coords are [lng, lat]; Leaflet wants [lat, lng]
     const latLngs = geo.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
 
-    // Outer glow / shadow
-    L.polyline(latLngs, { color: '#ffffff', weight: 12, opacity: 0.08 }).addTo(map);
-    // Track border
-    L.polyline(latLngs, { color: '#cccccc', weight: 6, opacity: 0.5 }).addTo(map);
-    // Main racing surface
-    const track = L.polyline(latLngs, { color: '#e8e8e8', weight: 3, opacity: 0.95 });
-    track.addTo(map);
-    trackLayerRef.current = track;
+    const group = L.layerGroup([
+      L.polyline(latLngs, { color: '#ffffff', weight: 12, opacity: 0.08 }),
+      L.polyline(latLngs, { color: '#cccccc', weight: 6, opacity: 0.5 }),
+      L.polyline(latLngs, { color: '#e8e8e8', weight: 3, opacity: 0.95 }),
+    ]);
+    group.addTo(map);
+    trackGroupRef.current = group;
 
-    // Fit map to circuit bounds with padding
     const bounds = L.latLngBounds(latLngs);
     map.fitBounds(bounds, { padding: [48, 48] });
-  }, [geo]);
+  }, [geo, meta]);
 
-  // Centre map when meta changes (no geo yet)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !meta || geo) return;
     map.setView([meta.lat, meta.lng], 15);
   }, [meta, geo]);
 
-  // Compute OpenF1 local coordinate bounds for driver projection
-  const localBounds = (() => {
-    const xs = drivers.map((d) => d.currentLocation?.x ?? 0).filter(Boolean);
-    const ys = drivers.map((d) => d.currentLocation?.y ?? 0).filter(Boolean);
-    if (!xs.length) return null;
-    return {
-      minX: Math.min(...xs),
-      maxX: Math.max(...xs),
-      minY: Math.min(...ys),
-      maxY: Math.max(...ys),
-    };
-  })();
-
-  // Update driver markers
+  // Replay: recent telemetry trails on the map
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !geo || !localBounds) return;
+    if (!map || !geo || !projectXY) return;
 
+    if (trailsGroupRef.current) {
+      trailsGroupRef.current.remove();
+      trailsGroupRef.current = null;
+    }
+
+    if (!isReplayMode || !replayTrails || replayTrails.size === 0) return;
+
+    const group = L.layerGroup();
+    const toMap = projectXY;
+
+    for (const [driverNumber, trail] of replayTrails) {
+      if (hiddenOnTrack.has(driverNumber)) continue;
+      if (trail.length < 2) continue;
+      const driver = drivers.find((d) => d.driver_number === driverNumber);
+      const color = `#${driver?.team_colour ?? 'ffffff'}`;
+      const latlngs = trail.map((p) => toMap(p.x, p.y));
+      L.polyline(latlngs, {
+        color,
+        weight: scaledTrailWeight(2, mapZoom),
+        opacity: 0.45,
+        lineCap: 'round',
+        lineJoin: 'round',
+        interactive: false,
+      }).addTo(group);
+    }
+
+    group.addTo(map);
+    group.eachLayer((ly) => {
+      (ly as L.Polyline).bringToBack();
+    });
+    trailsGroupRef.current = group;
+  }, [geo, projectXY, replayTrails, drivers, isReplayMode, hiddenOnTrack, mapZoom]);
+
+  // Driver markers (live or replay), live painted trails, speed bubbles
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !geo || !projectXY) return;
+
+    const toMap = projectXY;
     const existing = driverLayersRef.current;
     const seen = new Set<number>();
 
     for (const driver of drivers) {
-      if (!driver.currentLocation) continue;
-      const { x, y } = driver.currentLocation;
-      const [lat, lng] = localToLatLng(
-        x, y,
-        localBounds.minX, localBounds.maxX,
-        localBounds.minY, localBounds.maxY,
-        geo.coordinates
-      );
+      if (hiddenOnTrack.has(driver.driver_number)) continue;
 
+      let x: number;
+      let y: number;
+      if (isReplayMode) {
+        const rp = replayPositions!.get(driver.driver_number);
+        if (!rp) continue;
+        x = rp.x;
+        y = rp.y;
+      } else {
+        if (!driver.currentLocation) continue;
+        x = driver.currentLocation.x;
+        y = driver.currentLocation.y;
+      }
+
+      const [lat, lng] = toMap(x, y);
       const color = `#${driver.team_colour || 'ffffff'}`;
       const isSelected = driver.driver_number === selectedDriverNumber;
+
+      const radius = scaledMarkerRadius(isSelected ? 15 : 7, mapZoom);
+      const strokeW = scaledOutlineWeight(isSelected ? 4 : 1, mapZoom);
+
+      const speedKm = isReplayMode
+        ? speedKmhFromReplayTrail(replayTrails?.get(driver.driver_number) ?? [], metersPerUnit)
+        : driver.trackSpeedKmh ?? null;
+      const speedLabel =
+        speedKm != null && Number.isFinite(speedKm) ? `${Math.round(speedKm)} km/h` : '—';
+      const bubbleOffsetY = Math.round(-(radius + 28));
+      const highlightBubble =
+        isSelected
+          ? buildDriverHighlightBubble({
+              acronym: driver.name_acronym,
+              speedText: speedLabel,
+              headshotUrl: driver.headshot_url || undefined,
+              teamColourHex: driver.team_colour || 'ffffff',
+            })
+          : null;
+
+      if (!isReplayMode) {
+        const hist = livePathHistoryRef.current.get(driver.driver_number) ?? [];
+        const last = hist[hist.length - 1];
+        if (
+          !last ||
+          Math.hypot(lat - last[0], lng - last[1]) >= LIVE_TRAIL_MIN_STEP_DEG
+        ) {
+          const next = [...hist, [lat, lng] as [number, number]];
+          livePathHistoryRef.current.set(
+            driver.driver_number,
+            next.length > LIVE_TRAIL_MAX_POINTS ? next.slice(-LIVE_TRAIL_MAX_POINTS) : next
+          );
+        }
+      }
 
       if (existing.has(driver.driver_number)) {
         const marker = existing.get(driver.driver_number)!;
@@ -168,23 +465,30 @@ export function MapView({
         marker.setStyle({
           fillColor: color,
           color: isSelected ? '#ffffff' : color,
-          weight: isSelected ? 3 : 1,
-          radius: isSelected ? 8 : 5,
+          weight: strokeW,
+          radius,
+          className: isSelected ? 'driver-map-marker driver-map-marker--selected' : 'driver-map-marker',
         });
+        if (isSelected && highlightBubble) {
+          updateSpeedBubble(marker, highlightBubble, bubbleOffsetY);
+        } else clearSpeedBubble(marker);
       } else {
         const marker = L.circleMarker([lat, lng], {
-          radius: isSelected ? 8 : 5,
+          radius,
           fillColor: color,
           color: isSelected ? '#ffffff' : color,
-          weight: isSelected ? 3 : 1,
+          weight: strokeW,
           fillOpacity: 1,
+          className: isSelected ? 'driver-map-marker driver-map-marker--selected' : 'driver-map-marker',
         });
-        marker.bindTooltip(driver.name_acronym, {
-          permanent: false,
-          direction: 'top',
-          className: 'driver-tooltip',
-        });
-        marker.on('click', () => {
+        if (isSelected && highlightBubble) {
+          updateSpeedBubble(marker, highlightBubble, bubbleOffsetY);
+        } else clearSpeedBubble(marker);
+        marker.on('click', (e) => {
+          skipNextMapDeselectRef.current = true;
+          if (e.originalEvent) {
+            L.DomEvent.stopPropagation(e.originalEvent);
+          }
           onSelectDriver(
             driver.driver_number === selectedDriverNumber ? null : driver.driver_number
           );
@@ -195,32 +499,76 @@ export function MapView({
       seen.add(driver.driver_number);
     }
 
-    // Remove stale markers
     for (const [num, marker] of existing) {
       if (!seen.has(num)) {
         marker.remove();
         existing.delete(num);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drivers, geo, selectedDriverNumber]);
+
+    const validNums = new Set(drivers.map((d) => d.driver_number));
+    for (const num of [...livePathHistoryRef.current.keys()]) {
+      if (!validNums.has(num)) livePathHistoryRef.current.delete(num);
+    }
+
+    if (isReplayMode) {
+      livePathGroupRef.current?.clearLayers();
+    } else {
+      let group = livePathGroupRef.current;
+      if (!group) {
+        group = L.layerGroup().addTo(map);
+        livePathGroupRef.current = group;
+      } else {
+        group.clearLayers();
+      }
+      for (const [num, path] of livePathHistoryRef.current) {
+        if (hiddenOnTrack.has(num) || path.length < 2) continue;
+        const driver = drivers.find((d) => d.driver_number === num);
+        const c = `#${driver?.team_colour ?? 'ffffff'}`;
+        L.polyline(path, {
+          color: c,
+          weight: scaledTrailWeight(1.25, mapZoom),
+          opacity: 0.42,
+          lineCap: 'round',
+          lineJoin: 'round',
+          interactive: false,
+        }).addTo(group);
+      }
+      group.eachLayer((ly) => {
+        (ly as L.Polyline).bringToBack();
+      });
+    }
+
+    for (const m of existing.values()) {
+      m.bringToFront();
+    }
+  }, [
+    drivers,
+    geo,
+    selectedDriverNumber,
+    projectXY,
+    isReplayMode,
+    replayPositions,
+    replayTrails,
+    metersPerUnit,
+    onSelectDriver,
+    hiddenOnTrack,
+    mapZoom,
+  ]);
 
   return (
     <div className="relative w-full h-full bg-[#0a0a14]">
-      {/* Leaflet map container */}
       <div ref={containerRef} className="w-full h-full" />
 
-      {/* Loading overlay */}
       {isLoading && !geo && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-black/70 rounded-xl px-5 py-3 flex items-center gap-3">
-            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-white text-sm">Loading circuit map…</span>
+          <div className="bg-black/70 rounded-xl px-5 py-3.5 flex items-center gap-4">
+            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            <span className="text-white text-sm leading-snug">Loading circuit map…</span>
           </div>
         </div>
       )}
 
-      {/* Error overlay */}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="bg-black/70 rounded-xl px-5 py-3 text-center max-w-xs">
@@ -230,10 +578,11 @@ export function MapView({
         </div>
       )}
 
-      {/* Circuit name badge */}
       {geo && (
-        <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-1.5 pointer-events-none">
-          <p className="text-white text-xs font-semibold tracking-wide">{geo.bacingerName}</p>
+        <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-black/60 px-3.5 py-2 backdrop-blur-sm">
+          <p className="text-xs font-semibold tracking-wide text-white leading-snug">
+            {geo.bacingerName}
+          </p>
         </div>
       )}
     </div>

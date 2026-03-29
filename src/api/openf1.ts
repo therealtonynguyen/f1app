@@ -1,6 +1,15 @@
 import type { Session, Driver, Location, Position, Interval, Lap, CarData } from '../types/openf1';
 
-const BASE = 'https://api.openf1.org/v1';
+/**
+ * Production: call OpenF1 directly. Dev: same-origin `/api/openf1` (Vite proxy) avoids some CORS/network quirks.
+ * Override with `VITE_OPENF1_BASE` (e.g. your own proxy URL) if the API is blocked on your network.
+ */
+function openF1Base(): string {
+  const env = import.meta.env.VITE_OPENF1_BASE?.trim();
+  if (env) return env.replace(/\/$/, '');
+  if (import.meta.env.DEV) return '/api/openf1';
+  return 'https://api.openf1.org/v1';
+}
 
 export class OpenF1Error extends Error {
   constructor(message: string) {
@@ -10,10 +19,35 @@ export class OpenF1Error extends Error {
 }
 
 async function apiFetch<T>(path: string): Promise<T[]> {
-  const res = await fetch(`${BASE}${path}`);
-  const data = await res.json();
+  const url = `${openF1Base()}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    const hint =
+      raw === 'Failed to fetch' || raw.includes('fetch')
+        ? ' The browser could not reach the API. Try: different network or VPN off, disable ad blockers for this app, allow api.openf1.org in firewall, or run `npm run dev` (uses a local proxy).'
+        : '';
+    throw new OpenF1Error(`Network error: ${raw}.${hint}`);
+  }
 
-  // OpenF1 returns { detail: "..." } for errors (e.g. live session auth restriction)
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    throw new OpenF1Error(`OpenF1 returned a non-JSON body (HTTP ${res.status}).`);
+  }
+
+  if (!res.ok) {
+    const detail =
+      typeof data === 'object' && data !== null && 'detail' in data
+        ? String((data as { detail?: string }).detail)
+        : undefined;
+    throw new OpenF1Error(detail ?? `OpenF1 request failed (HTTP ${res.status}).`);
+  }
+
+  // OpenF1 returns { detail: "..." } for some errors (e.g. live session auth restriction)
   if (!Array.isArray(data)) {
     const detail = (data as { detail?: string }).detail;
     throw new OpenF1Error(detail ?? `Unexpected response from OpenF1 (${res.status})`);
@@ -168,5 +202,17 @@ export async function fetchCarData(
   const windowStart = new Date(sessionEnd.getTime() - 10 * 1000).toISOString();
   return apiFetch<CarData>(
     `/car_data?session_key=${sessionKey}&driver_number=${driverNumber}&date>${windowStart}`
+  );
+}
+
+/** Car telemetry samples for a lap window (replay / sync with location). */
+export async function fetchCarDataRange(
+  sessionKey: number,
+  driverNumber: number,
+  dateStart: string,
+  dateEnd: string
+): Promise<CarData[]> {
+  return apiFetch<CarData>(
+    `/car_data?session_key=${sessionKey}&driver_number=${driverNumber}&date>${dateStart}&date<${dateEnd}`
   );
 }

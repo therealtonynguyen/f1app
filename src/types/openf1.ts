@@ -86,4 +86,6 @@ export interface DriverWithData extends Driver {
   gap_to_leader?: string | number | null;
   interval?: string | number | null;
   currentLocation?: Location;
+  /** Instantaneous speed (km/h) from recent location samples, calibrated via track outline. */
+  trackSpeedKmh?: number;
 }

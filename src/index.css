@@ -1,23 +1,126 @@
 @import "tailwindcss";
 
+/* iOS-style dark mode (approximates SF Pro + system colors) */
+:root {
+  --ios-bg: #000000;
+  --ios-grouped: #1c1c1e;
+  --ios-grouped-secondary: #2c2c2e;
+  --ios-grouped-tertiary: #3a3a3c;
+  --ios-separator: rgba(84, 84, 88, 0.65);
+  --ios-label: #ffffff;
+  --ios-label-secondary: rgba(235, 235, 245, 0.6);
+  --ios-label-tertiary: rgba(235, 235, 245, 0.3);
+  --ios-blue: #0a84ff;
+  --ios-green: #30d158;
+  --ios-red: #ff453a;
+  --ios-orange: #ff9f0a;
+  --ios-fill: rgba(120, 120, 128, 0.32);
+  --ios-radius-lg: 14px;
+  --ios-radius-md: 10px;
+  --ios-radius-sm: 8px;
+  --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", system-ui, sans-serif;
+  /* F1 broadcast–style wordmark (approximation; not official F1 IP) */
+  --f1-wordmark-red: #e10600;
+  --f1-wordmark-font: "Exo 2", system-ui, sans-serif;
+}
+
+/* Top bar: “F1 Track” — heavy italic + skew like TV graphics */
+.app-logo-mark {
+  font-family: var(--f1-wordmark-font);
+  font-style: italic;
+  font-weight: 900;
+  font-size: 1.0625rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  transform: skewX(-10deg);
+  display: flex;
+  align-items: baseline;
+  gap: 0.28em;
+}
+
+.app-logo-f1 {
+  color: var(--f1-wordmark-red);
+  text-shadow: 0 0 20px rgba(225, 6, 0, 0.35);
+}
+
+.app-logo-rest {
+  color: #ffffff;
+  font-weight: 800;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
-  background: #0a0a0f;
-  color: #e5e7eb;
-  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--ios-bg);
+  color: var(--ios-label);
+  font-family: var(--ios-font);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
 }
 
 #root {
   width: 100%;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+}
+
+/* Frosted navigation / sheets */
+.ios-nav-blur {
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .ios-nav-blur {
+    background: #1c1c1e;
+  }
+}
+
+.ios-sheet-blur {
+  background: rgba(28, 28, 30, 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+  border-top: 0.5px solid var(--ios-separator);
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .ios-sheet-blur {
+    background: #1c1c1e;
+  }
+}
+
+.ios-group {
+  background: var(--ios-grouped);
+  border-radius: var(--ios-radius-lg);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.ios-cta {
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 12px 20px;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.ios-cta:active {
+  transform: scale(0.98);
+  opacity: 0.85;
 }
 
 .driver-dot {
@@ -43,28 +146,109 @@ body {
   stroke-width: 6;
 }
 
-/* Leaflet driver tooltip */
 .driver-tooltip {
-  background: rgba(0, 0, 0, 0.75) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  border-radius: 4px !important;
+  background: rgba(44, 44, 46, 0.94) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
   color: #fff !important;
-  font-size: 11px !important;
+  font-size: 12px !important;
   font-weight: 600 !important;
-  padding: 2px 6px !important;
-  box-shadow: none !important;
+  font-family: var(--ios-font) !important;
+  padding: 4px 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
 }
+
 .driver-tooltip::before {
   display: none !important;
 }
 
+.leaflet-tooltip.driver-speed-bubble {
+  background: rgba(44, 44, 46, 0.96) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  pointer-events: none !important;
+  white-space: normal !important;
+  max-width: none !important;
+}
+
+.driver-speed-bubble::before {
+  display: none !important;
+}
+
+.driver-speed-bubble-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.driver-speed-bubble-top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.driver-speed-bubble-acronym {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f8fafc;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  line-height: 1;
+}
+
+.driver-speed-bubble-photo-ring {
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+  background: #3a3a3c;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+}
+
+.driver-speed-bubble-photo-ring--empty {
+  background: linear-gradient(145deg, #48484a, #2c2c2e);
+}
+
+.driver-speed-bubble-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.driver-speed-bubble-speedline {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: rgba(235, 235, 245, 0.85);
+  line-height: 1.2;
+}
+
+/* Driver position dots on Leaflet map */
+.leaflet-interactive.driver-map-marker {
+  cursor: pointer;
+}
+
+.leaflet-interactive.driver-map-marker--selected {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 14px rgba(10, 132, 255, 0.55));
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #12121c;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2d2d3d;
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 100px;
 }

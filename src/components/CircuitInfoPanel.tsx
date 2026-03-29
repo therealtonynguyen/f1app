@@ -1,5 +1,6 @@
 import type { CircuitMeta, GeoCircuit } from '../hooks/useCircuitData';
 import type { Session, DriverWithData } from '../types/openf1';
+import { ToggleAllTrackVisibility, TrackVisibilitySwitch } from './TrackVisibilitySwitch';
 
 interface CircuitInfoPanelProps {
   meta: CircuitMeta | null;
@@ -8,6 +9,10 @@ interface CircuitInfoPanelProps {
   drivers: DriverWithData[];
   selectedDriverNumber: number | null;
   onSelectDriver: (n: number | null) => void;
+  driversHiddenOnTrack: Set<number>;
+  allDriversVisibleOnTrack: boolean;
+  onToggleAllTrackVisibility: () => void;
+  onToggleDriverTrackVisibility: (driverNumber: number) => void;
 }
 
 export function CircuitInfoPanel({
@@ -17,18 +22,30 @@ export function CircuitInfoPanel({
   drivers,
   selectedDriverNumber,
   onSelectDriver,
+  driversHiddenOnTrack,
+  allDriversVisibleOnTrack,
+  onToggleAllTrackVisibility,
+  onToggleDriverTrackVisibility,
 }: CircuitInfoPanelProps) {
   return (
-    <div className="h-full flex flex-col bg-[#0d0d1a] border-l border-white/5 overflow-y-auto">
+    <div
+      className="h-full flex flex-col border-l overflow-y-auto"
+      style={{ background: 'var(--ios-grouped)', borderColor: 'var(--ios-separator)' }}
+    >
       {/* Circuit header */}
-      <div className="p-4 border-b border-white/5">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] font-bold tracking-widest text-red-500 uppercase">Circuit Info</span>
+      <div className="p-4 border-b" style={{ borderColor: 'var(--ios-separator)' }}>
+        <div className="flex items-center gap-2.5 mb-1.5">
+          <span
+            className="text-[10px] font-bold tracking-widest uppercase"
+            style={{ color: 'var(--ios-label-tertiary)' }}
+          >
+            Circuit
+          </span>
         </div>
         {meta ? (
           <>
-            <h2 className="text-white font-bold text-sm leading-tight">{meta.circuitName}</h2>
-            <p className="text-gray-400 text-xs mt-0.5">
+            <h2 className="text-white font-semibold text-[15px] leading-tight">{meta.circuitName}</h2>
+            <p className="text-[12px] mt-0.5" style={{ color: 'var(--ios-label-secondary)' }}>
               {meta.locality}, {meta.country}
             </p>
             {meta.url && (
@@ -36,7 +53,8 @@ export function CircuitInfoPanel({
                 href={meta.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] text-red-400/80 hover:text-red-400 mt-1 inline-block transition-colors"
+                className="text-[13px] font-medium mt-1 inline-block transition-opacity active:opacity-70"
+                style={{ color: 'var(--ios-blue)' }}
               >
                 Wikipedia →
               </a>
@@ -44,17 +62,21 @@ export function CircuitInfoPanel({
           </>
         ) : session ? (
           <>
-            <h2 className="text-white font-bold text-sm">{session.location}</h2>
-            <p className="text-gray-500 text-xs mt-0.5">Loading circuit data…</p>
+            <h2 className="text-white font-semibold text-[15px]">{session.location}</h2>
+            <p className="text-[12px] mt-0.5" style={{ color: 'var(--ios-label-tertiary)' }}>
+              Loading circuit data…
+            </p>
           </>
         ) : (
-          <p className="text-gray-500 text-xs">No circuit data</p>
+          <p className="text-[12px]" style={{ color: 'var(--ios-label-tertiary)' }}>
+            No circuit data
+          </p>
         )}
       </div>
 
       {/* Circuit geometry stats */}
       {geo && (
-        <div className="p-4 border-b border-white/5 grid grid-cols-2 gap-3">
+        <div className="p-4 border-b grid grid-cols-2 gap-3" style={{ borderColor: 'var(--ios-separator)' }}>
           <StatCard
             label="Track Points"
             value={geo.coordinates.length.toString()}
@@ -78,8 +100,13 @@ export function CircuitInfoPanel({
 
       {/* Session info */}
       {session && (
-        <div className="p-4 border-b border-white/5">
-          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-2">Session</p>
+        <div className="p-4 border-b" style={{ borderColor: 'var(--ios-separator)' }}>
+          <p
+            className="text-[10px] font-bold tracking-widest uppercase mb-2"
+            style={{ color: 'var(--ios-label-tertiary)' }}
+          >
+            Session
+          </p>
           <div className="space-y-1.5">
             <Row label="Name" value={session.session_name} />
             <Row label="Type" value={session.session_type} />
@@ -99,44 +126,87 @@ export function CircuitInfoPanel({
 
       {/* Drivers on track */}
       {drivers.length > 0 && (
-        <div className="p-4 flex-1">
-          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-2">
-            Drivers on Map
-          </p>
-          <div className="space-y-1">
+        <div className="flex-1 p-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p
+              className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ color: 'var(--ios-label-tertiary)' }}
+            >
+              Drivers on map
+            </p>
+            <div className="flex items-center gap-3">
+              <ToggleAllTrackVisibility
+                allVisible={allDriversVisibleOnTrack}
+                onToggle={onToggleAllTrackVisibility}
+              />
+              <span
+                className="text-[9px] font-medium uppercase tracking-wider"
+                style={{ color: 'var(--ios-label-tertiary)' }}
+              >
+                Track
+              </span>
+            </div>
+          </div>
+          <div className="space-y-1.5">
             {drivers
               .filter((d) => d.currentLocation)
               .map((driver) => {
                 const isSelected = driver.driver_number === selectedDriverNumber;
                 const color = `#${driver.team_colour || 'ffffff'}`;
+                const visibleOnTrack = !driversHiddenOnTrack.has(driver.driver_number);
                 return (
-                  <button
+                  <div
                     key={driver.driver_number}
-                    onClick={() =>
-                      onSelectDriver(isSelected ? null : driver.driver_number)
-                    }
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition-all ${
+                    className="flex items-center gap-2.5 rounded-[12px] px-2.5 py-2 transition-colors"
+                    style={
                       isSelected
-                        ? 'bg-white/10 ring-1 ring-white/20'
-                        : 'hover:bg-white/5'
-                    }`}
+                        ? {
+                            background: 'rgba(120,120,128,0.22)',
+                            boxShadow: 'inset 0 0 0 0.5px rgba(255,255,255,0.08)',
+                          }
+                        : { background: 'transparent' }
+                    }
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = 'rgba(120,120,128,0.08)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = 'transparent';
+                    }}
                   >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="text-xs font-mono text-gray-300 w-6 shrink-0">
-                      {driver.name_acronym}
-                    </span>
-                    <span className="text-xs text-gray-500 truncate">
-                      {driver.team_name}
-                    </span>
-                    {driver.position && (
-                      <span className="ml-auto text-[10px] text-gray-600 shrink-0">
-                        P{driver.position}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSelectDriver(isSelected ? null : driver.driver_number)
+                      }
+                      className="flex min-w-0 flex-1 items-center gap-3 py-0.5 text-left"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="w-7 shrink-0 font-mono text-[12px] text-white">
+                        {driver.name_acronym}
                       </span>
-                    )}
-                  </button>
+                      <span
+                        className="truncate text-[12px]"
+                        style={{ color: 'var(--ios-label-secondary)' }}
+                      >
+                        {driver.team_name}
+                      </span>
+                      {driver.position && (
+                        <span
+                          className="ml-auto shrink-0 text-[10px]"
+                          style={{ color: 'var(--ios-label-tertiary)' }}
+                        >
+                          P{driver.position}
+                        </span>
+                      )}
+                    </button>
+                    <TrackVisibilitySwitch
+                      visible={visibleOnTrack}
+                      onToggle={() => onToggleDriverTrackVisibility(driver.driver_number)}
+                    />
+                  </div>
                 );
               })}
           </div>
@@ -156,9 +226,14 @@ function StatCard({
   small?: boolean;
 }) {
   return (
-    <div className="bg-white/5 rounded-lg px-3 py-2">
-      <p className="text-[10px] text-gray-500 mb-0.5">{label}</p>
-      <p className={`text-white font-semibold ${small ? 'text-[10px]' : 'text-sm'} truncate`}>
+    <div
+      className="rounded-[12px] px-3 py-2"
+      style={{ background: 'var(--ios-grouped-secondary)' }}
+    >
+      <p className="text-[10px] mb-1" style={{ color: 'var(--ios-label-tertiary)' }}>
+        {label}
+      </p>
+      <p className={`text-white font-semibold ${small ? 'text-[10px]' : 'text-[13px]'} truncate`}>
         {value}
       </p>
     </div>
@@ -175,12 +250,13 @@ function Row({
   highlight?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs text-gray-500 shrink-0">{label}</span>
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[12px] shrink-0" style={{ color: 'var(--ios-label-secondary)' }}>
+        {label}
+      </span>
       <span
-        className={`text-xs truncate text-right ${
-          highlight ? 'text-green-400 font-semibold' : 'text-gray-300'
-        }`}
+        className={`text-[12px] truncate text-right ${highlight ? 'font-semibold' : ''}`}
+        style={{ color: highlight ? 'var(--ios-green)' : 'rgba(235,235,245,0.92)' }}
       >
         {value}
       </span>
