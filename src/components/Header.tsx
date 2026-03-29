@@ -7,6 +7,7 @@ type HeaderProps = {
   isLoading: boolean;
   isLoadingTrack: boolean;
   onRefresh: () => void;
+  onOpenSessionPicker?: () => void;
   mode: AppMode;
   onModeChange?: (mode: AppMode) => void;
 };
@@ -31,6 +32,7 @@ export function Header({
   isLoading,
   isLoadingTrack,
   onRefresh,
+  onOpenSessionPicker,
   mode,
   onModeChange,
 }: HeaderProps) {
@@ -82,19 +84,29 @@ export function Header({
               </div>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="shrink-0 h-9 min-w-[36px] px-3 rounded-full text-[15px] font-semibold transition-opacity active:opacity-65 disabled:opacity-35"
-            style={{
-              background: 'var(--ios-fill)',
-              color: 'var(--ios-blue)',
-            }}
-            aria-label="Refresh"
-          >
-            {isLoading ? '…' : '↻'}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenSessionPicker && (
+              <button
+                type="button"
+                onClick={onOpenSessionPicker}
+                className="h-9 px-3 rounded-full text-[13px] font-semibold transition-opacity active:opacity-65"
+                style={{ background: 'var(--ios-fill)', color: 'var(--ios-blue)' }}
+                aria-label="Change race"
+              >
+                Change
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isLoading}
+              className="h-9 min-w-[36px] px-3 rounded-full text-[15px] font-semibold transition-opacity active:opacity-65 disabled:opacity-35"
+              style={{ background: 'var(--ios-fill)', color: 'var(--ios-blue)' }}
+              aria-label="Refresh"
+            >
+              {isLoading ? '…' : '↻'}
+            </button>
+          </div>
         </div>
 
         {onModeChange && (

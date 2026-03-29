@@ -81,6 +81,17 @@ export interface CarData {
   drs: number;
 }
 
+export interface Meeting {
+  meeting_key: number;
+  meeting_name: string;
+  meeting_official_name: string;
+  circuit_short_name: string;
+  date_start: string;
+  country_name: string;
+  location: string;
+  year: number;
+}
+
 export interface DriverWithData extends Driver {
   position?: number;
   gap_to_leader?: string | number | null;

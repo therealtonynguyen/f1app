@@ -1,4 +1,4 @@
-import type { Session, Driver, Location, Position, Interval, Lap, CarData } from '../types/openf1';
+import type { Session, Meeting, Driver, Location, Position, Interval, Lap, CarData } from '../types/openf1';
 
 /**
  * Production: call OpenF1 directly. Dev: same-origin `/api/openf1` (Vite proxy) avoids some CORS/network quirks.
@@ -63,6 +63,22 @@ function msAgo(ms: number): string {
 export async function fetchLatestSession(): Promise<Session | null> {
   const data = await apiFetch<Session>('/sessions?session_key=latest');
   return data[0] ?? null;
+}
+
+export async function fetchSessionByKey(sessionKey: number): Promise<Session | null> {
+  const data = await apiFetch<Session>(`/sessions?session_key=${sessionKey}`);
+  return data[0] ?? null;
+}
+
+export async function fetchMeetings(year: number): Promise<Meeting[]> {
+  const data = await apiFetch<Meeting>(`/meetings?year=${year}`);
+  return data.sort((a, b) => a.date_start.localeCompare(b.date_start));
+}
+
+export async function fetchSessionsForMeeting(meetingKey: number): Promise<Session[]> {
+  const data = await apiFetch<Session>(`/sessions?meeting_key=${meetingKey}`);
+  // Sort by date so Practice 1 → Practice 2 → Qualifying → Race order
+  return data.sort((a, b) => a.date_start.localeCompare(b.date_start));
 }
 
 export async function fetchDrivers(sessionKey: number): Promise<Driver[]> {

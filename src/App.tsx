@@ -9,6 +9,7 @@ import { ReplayControls } from './components/ReplayControls';
 import { MapView } from './components/MapView';
 import { CircuitInfoPanel } from './components/CircuitInfoPanel';
 import { DriverTelemetryGraphs } from './components/DriverTelemetryGraphs';
+import { SessionPicker } from './components/SessionPicker';
 import { useAllDriversReplayCarSeries } from './hooks/useAllDriversReplayCarSeries';
 import type { AppMode } from './types/appMode';
 
@@ -20,6 +21,7 @@ export default function App() {
   const [replayBarVisible, setReplayBarVisible] = useState(true);
   const [driversHiddenOnTrack, setDriversHiddenOnTrack] = useState<Set<number>>(() => new Set());
   const [graphsExpandedDriver, setGraphsExpandedDriver] = useState<number | null>(null);
+  const [sessionPickerOpen, setSessionPickerOpen] = useState(false);
 
   const {
     session,
@@ -33,6 +35,7 @@ export default function App() {
     error,
     isLive,
     refresh,
+    loadSession,
   } = useF1Data();
 
   const replay = useLapReplay(session?.session_key ?? null, drivers);
@@ -164,9 +167,23 @@ export default function App() {
         isLoading={isLoading}
         isLoadingTrack={circuit.isLoading}
         onRefresh={refresh}
+        onOpenSessionPicker={() => setSessionPickerOpen(true)}
         mode={mode}
         onModeChange={session ? handleModeChange : undefined}
       />
+
+      {sessionPickerOpen && (
+        <SessionPicker
+          currentSessionKey={session?.session_key}
+          onSelect={(sessionKey) => {
+            // Reset replay when switching sessions
+            replay.pause();
+            setMode('live');
+            loadSession(sessionKey);
+          }}
+          onClose={() => setSessionPickerOpen(false)}
+        />
+      )}
 
       {error ? (
         <div

@@ -38,7 +38,7 @@ function latestByDriver<T extends { driver_number: number; date: string }>(
   return map;
 }
 
-export function useF1Data() {
+export function useF1Data(_initialSessionKey?: number) {
   const [session, setSession] = useState<Session | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [driverLocations, setDriverLocations] = useState<Map<number, Location>>(new Map());
@@ -119,24 +119,35 @@ export function useF1Data() {
     }
   }, []);
 
-  const initialize = useCallback(async () => {
+  const initialize = useCallback(async (overrideSessionKey?: number) => {
     setIsLoading(true);
     setError(null);
+    // Clear stale data when switching sessions
+    setDrivers([]);
+    setDriverLocations(new Map());
+    setPositions(new Map());
+    setIntervals(new Map());
+    setTrackOutline([]);
+    setTrackSpeedKmhByDriver(new Map());
+    trackOutlineRef.current = [];
+    lastLocSampleRef.current.clear();
 
     try {
-      const sessionData = await api.fetchLatestSession();
+      const sessionData = overrideSessionKey
+        ? await api.fetchSessionByKey(overrideSessionKey)
+        : await api.fetchLatestSession();
+
       if (!sessionData) {
+        console.warn('[useF1Data] Session fetch returned null — empty array from OpenF1');
         setError('No session data available from OpenF1.');
         return;
       }
 
+      console.log('[useF1Data] Session loaded:', sessionData.session_key, sessionData.location, sessionData.session_name);
+
       setSession(sessionData);
       sessionRef.current = sessionData;
       setIsLive(isSessionLive(sessionData));
-      lastLocSampleRef.current.clear();
-      setTrackSpeedKmhByDriver(new Map());
-      setTrackOutline([]);
-      trackOutlineRef.current = [];
 
       const driverData = await api.fetchDrivers(sessionData.session_key);
       setDrivers(driverData);
@@ -159,19 +170,21 @@ export function useF1Data() {
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load session data.';
+      console.error('[useF1Data] Initialization failed:', err);
       setError(msg);
     } finally {
       setIsLoading(false);
     }
   }, [updateLiveData]);
 
-  // Bootstrap
+  // Bootstrap — run once on mount
   useEffect(() => {
     initialize();
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [initialize]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Poll live data
   useEffect(() => {
@@ -258,6 +271,7 @@ export function useF1Data() {
     isLoading,
     error,
     isLive,
-    refresh: initialize,
+    refresh: () => initialize(),
+    loadSession: (sessionKey: number) => initialize(sessionKey),
   };
 }
