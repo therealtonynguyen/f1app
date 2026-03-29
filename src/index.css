@@ -1,31 +1,55 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
-/* ─── ShadCN design tokens (F1 dark theme) ─────────────────────────────── */
-:root {
-  --background:         0 0% 0%;       /* #000  */
-  --foreground:         0 0% 100%;     /* #fff  */
-  --card:               0 0% 11%;      /* #1c1c1e */
+/* ─── ShadCN design tokens — dark (default) ───────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --background:         0 0% 0%;
+  --foreground:         0 0% 100%;
+  --card:               0 0% 11%;
   --card-foreground:    0 0% 100%;
   --popover:            0 0% 11%;
   --popover-foreground: 0 0% 100%;
   --primary:            4 91% 44%;     /* F1 red #e10600 */
   --primary-foreground: 0 0% 100%;
-  --secondary:          0 0% 17%;      /* #2c2c2e */
+  --secondary:          0 0% 17%;
   --secondary-foreground: 0 0% 80%;
-  --muted:              0 0% 23%;      /* #3a3a3c */
+  --muted:              0 0% 23%;
   --muted-foreground:   0 0% 60%;
-  --accent:             211 100% 51%;  /* ios-blue #0a84ff */
+  --accent:             211 100% 51%;
   --accent-foreground:  0 0% 100%;
-  --destructive:        4 84% 60%;     /* ios-red  #ff453a */
+  --destructive:        4 84% 60%;
   --destructive-foreground: 0 0% 100%;
   --border:             0 0% 33% / 0.65;
   --input:              0 0% 17%;
   --ring:               211 100% 51%;
-  --radius:             0.625rem;      /* 10px */
+  --radius:             0.625rem;
 }
 
-/* ─── Tailwind v4 @theme bridge — maps ShadCN hsl() vars to tw utilities ── */
+/* ─── ShadCN design tokens — light ────────────────────────────────────── */
+[data-theme="light"] {
+  --background:         0 0% 98%;
+  --foreground:         0 0% 9%;
+  --card:               0 0% 100%;
+  --card-foreground:    0 0% 9%;
+  --popover:            0 0% 100%;
+  --popover-foreground: 0 0% 9%;
+  --primary:            4 91% 44%;
+  --primary-foreground: 0 0% 100%;
+  --secondary:          0 0% 92%;
+  --secondary-foreground: 0 0% 20%;
+  --muted:              0 0% 94%;
+  --muted-foreground:   0 0% 45%;
+  --accent:             211 100% 44%;
+  --accent-foreground:  0 0% 100%;
+  --destructive:        4 84% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --border:             0 0% 78%;
+  --input:              0 0% 92%;
+  --ring:               211 100% 44%;
+}
+
+/* ─── Tailwind v4 @theme bridge ─────────────────────────────────────────── */
 @theme inline {
   --color-background:         hsl(var(--background));
   --color-foreground:         hsl(var(--foreground));
@@ -51,8 +75,9 @@
   --radius-xl:  calc(var(--radius) + 8px);
 }
 
-/* iOS-style dark mode (approximates SF Pro + system colors) */
-:root {
+/* ─── iOS system colors — dark ──────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
   --ios-bg: #000000;
   --ios-grouped: #1c1c1e;
   --ios-grouped-secondary: #2c2c2e;
@@ -66,17 +91,77 @@
   --ios-red: #ff453a;
   --ios-orange: #ff9f0a;
   --ios-fill: rgba(120, 120, 128, 0.32);
+  --f1-wordmark-red: #e10600;
+  --f1-wordmark-font: "Exo 2", system-ui, sans-serif;
   --ios-radius-lg: 14px;
   --ios-radius-md: 10px;
   --ios-radius-sm: 8px;
   --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
     "Helvetica Neue", system-ui, sans-serif;
-  /* F1 broadcast–style wordmark (approximation; not official F1 IP) */
-  --f1-wordmark-red: #e10600;
-  --f1-wordmark-font: "Exo 2", system-ui, sans-serif;
 }
 
-/* Top bar: “F1 Track” — heavy italic + skew like TV graphics */
+/* ─── iOS system colors — light ─────────────────────────────────────────── */
+[data-theme="light"] {
+  --ios-bg: #f2f2f7;
+  --ios-grouped: #ffffff;
+  --ios-grouped-secondary: #f2f2f7;
+  --ios-grouped-tertiary: #e5e5ea;
+  --ios-separator: rgba(60, 60, 67, 0.29);
+  --ios-label: #000000;
+  --ios-label-secondary: rgba(60, 60, 67, 0.6);
+  --ios-label-tertiary: rgba(60, 60, 67, 0.3);
+  --ios-blue: #007aff;
+  --ios-green: #34c759;
+  --ios-red: #ff3b30;
+  --ios-orange: #ff9500;
+  --ios-fill: rgba(120, 120, 128, 0.2);
+  --f1-wordmark-red: #e10600;
+  --f1-wordmark-font: "Exo 2", system-ui, sans-serif;
+  --ios-radius-lg: 14px;
+  --ios-radius-md: 10px;
+  --ios-radius-sm: 8px;
+  --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", system-ui, sans-serif;
+}
+
+/* ─── Google Maps InfoWindow — transparent dark card ───────────────────── */
+/* Strip the default white bubble; our HTML content provides its own card. */
+.gm-style .gm-style-iw-c {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  max-width: none !important;
+}
+.gm-style .gm-style-iw-d {
+  overflow: hidden !important;
+  padding: 0 !important;
+  max-height: none !important;
+}
+/* Hide the white arrow tail */
+.gm-style .gm-style-iw-tc,
+.gm-style .gm-style-iw-t::after { display: none !important; }
+/* Position the close button inside our card */
+.gm-style .gm-style-iw-chr {
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  z-index: 1 !important;
+}
+.gm-style .gm-ui-hover-effect {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  background: rgba(40,40,44,0.85) !important;
+  opacity: 0.9 !important;
+}
+.gm-style .gm-ui-hover-effect span {
+  filter: invert(1) !important;
+  width: 12px !important;
+  height: 12px !important;
+}
+
+/* ─── Logo ──────────────────────────────────────────────────────────────── */
 .app-logo-mark {
   font-family: var(--f1-wordmark-font);
   font-style: italic;
@@ -89,26 +174,19 @@
   align-items: baseline;
   gap: 0.28em;
 }
-
 .app-logo-f1 {
   color: var(--f1-wordmark-red);
   text-shadow: 0 0 20px rgba(225, 6, 0, 0.35);
 }
-
 .app-logo-rest {
-  color: #ffffff;
+  color: var(--ios-label);
   font-weight: 800;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ─── Base ──────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-html {
-  -webkit-tap-highlight-color: transparent;
-}
+html { -webkit-tap-highlight-color: transparent; }
 
 body {
   background: var(--ios-bg);
@@ -127,18 +205,19 @@ body {
   flex-direction: column;
 }
 
-/* Frosted navigation / sheets */
+/* ─── Frosted surfaces ──────────────────────────────────────────────────── */
 .ios-nav-blur {
   background: rgba(0, 0, 0, 0.55);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 0.5px solid var(--ios-separator);
 }
-
+[data-theme="light"] .ios-nav-blur {
+  background: rgba(242, 242, 247, 0.72);
+}
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .ios-nav-blur {
-    background: #1c1c1e;
-  }
+  .ios-nav-blur { background: #1c1c1e; }
+  [data-theme="light"] .ios-nav-blur { background: #f2f2f7; }
 }
 
 .ios-sheet-blur {
@@ -147,11 +226,10 @@ body {
   backdrop-filter: saturate(180%) blur(24px);
   border-top: 0.5px solid var(--ios-separator);
 }
-
+[data-theme="light"] .ios-sheet-blur { background: rgba(255, 255, 255, 0.85); }
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .ios-sheet-blur {
-    background: #1c1c1e;
-  }
+  .ios-sheet-blur { background: #1c1c1e; }
+  [data-theme="light"] .ios-sheet-blur { background: #fff; }
 }
 
 .ios-group {
@@ -160,6 +238,7 @@ body {
   border: 0.5px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
+[data-theme="light"] .ios-group { border-color: rgba(0,0,0,0.06); }
 
 .ios-cta {
   border-radius: 9999px;
@@ -168,20 +247,11 @@ body {
   padding: 12px 20px;
   transition: opacity 0.15s ease, transform 0.1s ease;
 }
+.ios-cta:active { transform: scale(0.98); opacity: 0.85; }
 
-.ios-cta:active {
-  transform: scale(0.98);
-  opacity: 0.85;
-}
-
-.driver-dot {
-  transition: r 0.2s ease, opacity 0.2s ease;
-  cursor: pointer;
-}
-
-.driver-dot:hover {
-  opacity: 0.85;
-}
+/* ─── Driver dots / track SVG ───────────────────────────────────────────── */
+.driver-dot { transition: r 0.2s ease, opacity 0.2s ease; cursor: pointer; }
+.driver-dot:hover { opacity: 0.85; }
 
 .track-path {
   fill: none;
@@ -190,116 +260,13 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.track-path-inner { fill: none; stroke: #1a1a2e; stroke-width: 6; }
 
-.track-path-inner {
-  fill: none;
-  stroke: #1a1a2e;
-  stroke-width: 6;
-}
-
-.driver-tooltip {
-  background: rgba(44, 44, 46, 0.94) !important;
-  border: 0.5px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 8px !important;
-  color: #fff !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  font-family: var(--ios-font) !important;
-  padding: 4px 8px !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
-}
-
-.driver-tooltip::before {
-  display: none !important;
-}
-
-.leaflet-tooltip.driver-speed-bubble {
-  background: rgba(44, 44, 46, 0.96) !important;
-  border: 0.5px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 12px !important;
-  padding: 10px 12px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
-  pointer-events: none !important;
-  white-space: normal !important;
-  max-width: none !important;
-}
-
-.driver-speed-bubble::before {
-  display: none !important;
-}
-
-.driver-speed-bubble-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.driver-speed-bubble-top {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.driver-speed-bubble-acronym {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #f8fafc;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  line-height: 1;
-}
-
-.driver-speed-bubble-photo-ring {
-  width: 30px;
-  height: 30px;
-  border-radius: 9999px;
-  overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  flex-shrink: 0;
-  background: #3a3a3c;
-  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.25);
-}
-
-.driver-speed-bubble-photo-ring--empty {
-  background: linear-gradient(145deg, #48484a, #2c2c2e);
-}
-
-.driver-speed-bubble-photo {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.driver-speed-bubble-speedline {
-  font-size: 10px;
-  font-weight: 600;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  color: rgba(235, 235, 245, 0.85);
-  line-height: 1.2;
-}
-
-/* Driver position dots on Leaflet map */
-.leaflet-interactive.driver-map-marker {
-  cursor: pointer;
-}
-
-.leaflet-interactive.driver-map-marker--selected {
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.95))
-    drop-shadow(0 0 14px rgba(10, 132, 255, 0.55));
-}
-
-::-webkit-scrollbar {
-  width: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ─── Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 100px;
 }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }

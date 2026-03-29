@@ -3,10 +3,12 @@ import { useF1Data } from './hooks/useF1Data';
 import { useLapReplay } from './hooks/useLapReplay';
 import { useReplayCarTelemetry } from './hooks/useReplayCarTelemetry';
 import { useCircuitData } from './hooks/useCircuitData';
+import { useTheme } from './hooks/useTheme';
 import { Header } from './components/Header';
 import { DriverPanel } from './components/DriverPanel';
 import { ReplayControls } from './components/ReplayControls';
 import { MapView } from './components/MapView';
+import { CircuitMap } from './components/CircuitMap';
 import { CircuitInfoPanel } from './components/CircuitInfoPanel';
 import { DriverTelemetryGraphs } from './components/DriverTelemetryGraphs';
 import { SessionPicker } from './components/SessionPicker';
@@ -15,8 +17,12 @@ import type { AppMode } from './types/appMode';
 
 export type { AppMode };
 
+type MapLayer = 'satellite' | 'circuit';
+
 export default function App() {
+  const { theme, toggleTheme } = useTheme();
   const [mode, setMode] = useState<AppMode>('live');
+  const [mapLayer, setMapLayer] = useState<MapLayer>('satellite');
   const [driversPanelOpen, setDriversPanelOpen] = useState(true);
   const [replayBarVisible, setReplayBarVisible] = useState(true);
   const [driversHiddenOnTrack, setDriversHiddenOnTrack] = useState<Set<number>>(() => new Set());
@@ -170,6 +176,8 @@ export default function App() {
         onOpenSessionPicker={() => setSessionPickerOpen(true)}
         mode={mode}
         onModeChange={session ? handleModeChange : undefined}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <SessionPicker
@@ -311,22 +319,61 @@ export default function App() {
                 />
               ) : (
                 <div className="flex-1 min-h-0 relative w-full">
-                  <MapView
-                    meta={circuit.meta}
-                    geo={circuit.geo}
-                    isLoading={circuit.isLoading}
-                    error={circuit.error}
-                    drivers={drivers}
-                    trackOutline={trackOutline}
-                    selectedDriverNumber={selectedDriverNumber}
-                    onSelectDriver={setSelectedDriverNumber}
-                    driversHiddenOnTrack={driversHiddenOnTrackResolved}
-                    replayPositions={isReplayLikeMode ? replay.positions : undefined}
-                    replayTrails={isReplayLikeMode ? replay.trails : undefined}
-                    replayTelemetryBounds={
-                      isReplayLikeMode ? replay.replayTelemetryBounds : undefined
-                    }
-                  />
+                  {mapLayer === 'satellite' ? (
+                    <MapView
+                      meta={circuit.meta}
+                      geo={circuit.geo}
+                      isLoading={circuit.isLoading}
+                      error={circuit.error}
+                      drivers={drivers}
+                      trackOutline={trackOutline}
+                      selectedDriverNumber={selectedDriverNumber}
+                      onSelectDriver={setSelectedDriverNumber}
+                      driversHiddenOnTrack={driversHiddenOnTrackResolved}
+                      replayPositions={isReplayLikeMode ? replay.positions : undefined}
+                      replayTrails={isReplayLikeMode ? replay.trails : undefined}
+                      replayTelemetryBounds={
+                        isReplayLikeMode ? replay.replayTelemetryBounds : undefined
+                      }
+                    />
+                  ) : (
+                    <CircuitMap
+                      trackOutline={trackOutline}
+                      drivers={drivers}
+                      selectedDriverNumber={selectedDriverNumber}
+                      onSelectDriver={setSelectedDriverNumber}
+                      driversHiddenOnTrack={driversHiddenOnTrackResolved}
+                      replayPositions={isReplayLikeMode ? replay.positions : undefined}
+                      replayTrails={isReplayLikeMode ? replay.trails : undefined}
+                    />
+                  )}
+
+                  {/* Layer toggle — bottom-centre */}
+                  <div
+                    className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1000] flex rounded-full p-0.5 gap-0.5 shadow-lg"
+                    style={{
+                      background: 'rgba(28,28,30,0.72)',
+                      WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+                      backdropFilter: 'saturate(180%) blur(20px)',
+                      border: '0.5px solid rgba(255,255,255,0.12)',
+                    }}
+                  >
+                    {(['satellite', 'circuit'] as MapLayer[]).map((layer) => (
+                      <button
+                        key={layer}
+                        type="button"
+                        onClick={() => setMapLayer(layer)}
+                        className="rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-all duration-200"
+                        style={
+                          mapLayer === layer
+                            ? { background: 'rgba(255,255,255,0.18)', color: '#fff' }
+                            : { background: 'transparent', color: 'rgba(255,255,255,0.45)' }
+                        }
+                      >
+                        {layer === 'satellite' ? '🛰 Satellite' : '🏎 Circuit'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               <button
