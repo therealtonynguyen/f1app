@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as api from '../api/openf1';
 import type { DriverWithData, Lap } from '../types/openf1';
 
@@ -14,7 +14,15 @@ export interface DriverReplayData {
   points: ReplayPoint[];
 }
 
-export type ReplaySpeed = 1 | 2 | 4 | 8;
+export type ReplaySpeed = 0.25 | 0.5 | 1 | 2 | 4 | 8;
+
+/** Axis-aligned bounds of all loaded lap GPS (stable during playback). */
+export type ReplayTelemetryBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
 
 export interface LapReplayState {
   // Data loading
@@ -41,6 +49,7 @@ export interface LapReplayState {
   // Current positions and trails derived from currentTime
   positions: Map<number, { x: number; y: number }>;
   trails: Map<number, ReplayPoint[]>;
+  replayTelemetryBounds: ReplayTelemetryBounds | null;
 }
 
 // Linear interpolation between two replay points at time t
@@ -271,6 +280,23 @@ export function useLapReplay(
     }
   }, [sessionKey, drivers, reset]);
 
+  const replayTelemetryBounds = useMemo((): ReplayTelemetryBounds | null => {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const { points } of driverData) {
+      for (const p of points) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+    }
+    if (minX === Infinity) return null;
+    return { minX, maxX, minY, maxY };
+  }, [driverData]);
+
   // Derived: current positions and trails from currentTime
   const positions = new Map<number, { x: number; y: number }>();
   const trails = new Map<number, ReplayPoint[]>();
@@ -298,5 +324,6 @@ export function useLapReplay(
     setSpeed,
     positions,
     trails,
+    replayTelemetryBounds,
   };
 }

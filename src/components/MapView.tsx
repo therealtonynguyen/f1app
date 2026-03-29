@@ -2,11 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { CircuitMeta, GeoCircuit } from '../hooks/useCircuitData';
-import type { ReplayPoint } from '../hooks/useLapReplay';
+import type { ReplayPoint, ReplayTelemetryBounds } from '../hooks/useLapReplay';
 import type { DriverWithData, Location } from '../types/openf1';
 import {
   boundsFromLocations,
-  boundsFromXYPoints,
   buildTelemetryToLatLngProjector,
   localToLatLngBbox,
 } from '../lib/telemetryGeoAlign';
@@ -28,6 +27,7 @@ function buildDriverHighlightBubble(opts: {
   const nameEl = document.createElement('span');
   nameEl.className = 'driver-speed-bubble-acronym';
   nameEl.textContent = acronym;
+  topRow.appendChild(nameEl);
 
   const photoRing = document.createElement('div');
   photoRing.className = 'driver-speed-bubble-photo-ring';
@@ -48,7 +48,6 @@ function buildDriverHighlightBubble(opts: {
     photoRing.classList.add('driver-speed-bubble-photo-ring--empty');
   }
 
-  topRow.appendChild(nameEl);
   topRow.appendChild(photoRing);
 
   const speedEl = document.createElement('div');
@@ -85,12 +84,8 @@ interface MapViewProps {
   /** When set, markers use replay positions instead of live GPS. */
   replayPositions?: Map<number, { x: number; y: number }>;
   replayTrails?: Map<number, ReplayPoint[]>;
-  /**
-   * Replay variant: draw a track from averaged driver GPS (not the GeoJSON circuit)
-   * and fit/projection use only telemetry bounds.
-   */
-  ogTrackMode?: boolean;
-  ogTrackPoints?: { x: number; y: number }[];
+  /** Full-lap telemetry bbox for replay; keeps projection stable while trails grow. */
+  replayTelemetryBounds?: ReplayTelemetryBounds | null;
 }
 
 type LocalBounds = { minX: number; maxX: number; minY: number; maxY: number };
@@ -209,8 +204,7 @@ export function MapView({
   driversHiddenOnTrack,
   replayPositions,
   replayTrails,
-  ogTrackMode = false,
-  ogTrackPoints = [],
+  replayTelemetryBounds,
 }: MapViewProps) {
   const hiddenOnTrack = driversHiddenOnTrack ?? EMPTY_HIDDEN;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -221,46 +215,42 @@ export function MapView({
   const driverLayersRef = useRef<Map<number, L.CircleMarker>>(new Map());
   const livePathHistoryRef = useRef<Map<number, [number, number][]>>(new Map());
   const livePathGroupRef = useRef<L.LayerGroup | null>(null);
+  /** Leaflet may still emit map click after a marker click; skip one clear. */
+  const skipNextMapDeselectRef = useRef(false);
 
   const isReplayMode = replayPositions !== undefined;
 
   const outlineBounds = useMemo(() => boundsFromLocations(trackOutline), [trackOutline]);
 
-  const ogBounds = useMemo(() => boundsFromXYPoints(ogTrackPoints), [ogTrackPoints]);
-
   /**
    * Never fold live car GPS into the projector bounds — that was shifting the whole map
    * every poll (“following” drivers). Replay still merges replay extents for fallback fit.
-   * OG mode: only telemetry (+ consensus track), no reference outline bbox.
    */
   const boundsForProjector = useMemo(() => {
     if (isReplayMode && replayPositions) {
-      const rb = computeTelemetryBounds([], replayPositions, replayTrails);
-      if (ogTrackMode && ogBounds) {
-        return mergeBounds(rb, ogBounds);
-      }
+      const rb =
+        replayTelemetryBounds ??
+        computeTelemetryBounds([], replayPositions, replayTrails);
       return mergeBounds(outlineBounds, rb);
     }
     return outlineBounds;
-  }, [isReplayMode, replayPositions, replayTrails, outlineBounds, ogTrackMode, ogBounds]);
+  }, [
+    isReplayMode,
+    replayPositions,
+    replayTelemetryBounds,
+    replayTrails,
+    outlineBounds,
+  ]);
 
-  const metersPerUnit = useMemo(() => {
-    if (ogTrackMode && ogTrackPoints.length >= 4) {
-      let L = 0;
-      for (let i = 1; i < ogTrackPoints.length; i++) {
-        const a = ogTrackPoints[i - 1]!;
-        const b = ogTrackPoints[i]!;
-        L += Math.hypot(b.x - a.x, b.y - a.y);
-      }
-      if (L > 1e-6) return 5000 / L;
-    }
-    return metersPerUnitFromTrackOutline(trackOutline);
-  }, [ogTrackMode, ogTrackPoints, trackOutline]);
+  const metersPerUnit = useMemo(
+    () => metersPerUnitFromTrackOutline(trackOutline),
+    [trackOutline]
+  );
 
   /** Affine fit to circuit when outline is available; else axis-aligned bbox vs GeoJSON. */
   const projectXY = useMemo((): ((x: number, y: number) => [number, number]) | null => {
     if (!geo) return null;
-    if (!ogTrackMode && trackOutline.length >= 10) {
+    if (trackOutline.length >= 10) {
       const aff = buildTelemetryToLatLngProjector(trackOutline, geo.coordinates);
       if (aff) return aff;
     }
@@ -270,12 +260,7 @@ export function MapView({
         localToLatLngBbox(x, y, b.minX, b.maxX, b.minY, b.maxY, geo.coordinates);
     }
     return null;
-  }, [geo, trackOutline, boundsForProjector, ogTrackMode]);
-
-  const ogTrackLatLngs = useMemo((): [number, number][] => {
-    if (!projectXY || ogTrackPoints.length < 2) return [];
-    return ogTrackPoints.map((p) => projectXY(p.x, p.y));
-  }, [projectXY, ogTrackPoints]);
+  }, [geo, trackOutline, boundsForProjector]);
 
   // Initialise map once
   useEffect(() => {
@@ -284,6 +269,7 @@ export function MapView({
     const map = L.map(containerRef.current, {
       zoomControl: true,
       attributionControl: true,
+      scrollWheelZoom: true,
     });
 
     const syncMapZoom = () => setMapZoom(map.getZoom());
@@ -312,11 +298,17 @@ export function MapView({
     };
   }, []);
 
-  // Click empty map to clear driver selection
+  // Click empty map to clear driver selection (not when a driver dot was clicked)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const onMapClick = () => onSelectDriver(null);
+    const onMapClick = () => {
+      if (skipNextMapDeselectRef.current) {
+        skipNextMapDeselectRef.current = false;
+        return;
+      }
+      onSelectDriver(null);
+    };
     map.on('click', onMapClick);
     return () => {
       map.off('click', onMapClick);
@@ -336,7 +328,7 @@ export function MapView({
     }
   }, [isReplayMode]);
 
-  // Draw circuit: GeoJSON outline (live / replay) or GPS-derived OG track
+  // Draw circuit: GeoJSON outline (live / replay)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !geo) return;
@@ -344,22 +336,6 @@ export function MapView({
     if (trackGroupRef.current) {
       trackGroupRef.current.remove();
       trackGroupRef.current = null;
-    }
-
-    if (ogTrackMode) {
-      if (ogTrackLatLngs.length >= 3) {
-        const group = L.layerGroup([
-          L.polyline(ogTrackLatLngs, { color: '#ffffff', weight: 14, opacity: 0.1 }),
-          L.polyline(ogTrackLatLngs, { color: '#6b7280', weight: 7, opacity: 0.55 }),
-          L.polyline(ogTrackLatLngs, { color: '#d1d5db', weight: 3.5, opacity: 0.95 }),
-        ]);
-        group.addTo(map);
-        trackGroupRef.current = group;
-        map.fitBounds(L.latLngBounds(ogTrackLatLngs), { padding: [52, 52] });
-      } else if (meta) {
-        map.setView([meta.lat, meta.lng], 15);
-      }
-      return;
     }
 
     const latLngs = geo.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
@@ -374,7 +350,7 @@ export function MapView({
 
     const bounds = L.latLngBounds(latLngs);
     map.fitBounds(bounds, { padding: [48, 48] });
-  }, [geo, meta, ogTrackMode, ogTrackLatLngs]);
+  }, [geo, meta]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -449,8 +425,8 @@ export function MapView({
       const color = `#${driver.team_colour || 'ffffff'}`;
       const isSelected = driver.driver_number === selectedDriverNumber;
 
-      const radius = scaledMarkerRadius(isSelected ? 12 : 8, mapZoom);
-      const strokeW = scaledOutlineWeight(isSelected ? 3 : 1, mapZoom);
+      const radius = scaledMarkerRadius(isSelected ? 15 : 7, mapZoom);
+      const strokeW = scaledOutlineWeight(isSelected ? 4 : 1, mapZoom);
 
       const speedKm = isReplayMode
         ? speedKmhFromReplayTrail(replayTrails?.get(driver.driver_number) ?? [], metersPerUnit)
@@ -491,6 +467,7 @@ export function MapView({
           color: isSelected ? '#ffffff' : color,
           weight: strokeW,
           radius,
+          className: isSelected ? 'driver-map-marker driver-map-marker--selected' : 'driver-map-marker',
         });
         if (isSelected && highlightBubble) {
           updateSpeedBubble(marker, highlightBubble, bubbleOffsetY);
@@ -502,12 +479,16 @@ export function MapView({
           color: isSelected ? '#ffffff' : color,
           weight: strokeW,
           fillOpacity: 1,
+          className: isSelected ? 'driver-map-marker driver-map-marker--selected' : 'driver-map-marker',
         });
         if (isSelected && highlightBubble) {
           updateSpeedBubble(marker, highlightBubble, bubbleOffsetY);
         } else clearSpeedBubble(marker);
         marker.on('click', (e) => {
-          L.DomEvent.stopPropagation(e);
+          skipNextMapDeselectRef.current = true;
+          if (e.originalEvent) {
+            L.DomEvent.stopPropagation(e.originalEvent);
+          }
           onSelectDriver(
             driver.driver_number === selectedDriverNumber ? null : driver.driver_number
           );
@@ -581,9 +562,9 @@ export function MapView({
 
       {isLoading && !geo && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-black/70 rounded-xl px-5 py-3 flex items-center gap-3">
-            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-white text-sm">Loading circuit map…</span>
+          <div className="bg-black/70 rounded-xl px-5 py-3.5 flex items-center gap-4">
+            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            <span className="text-white text-sm leading-snug">Loading circuit map…</span>
           </div>
         </div>
       )}
@@ -598,9 +579,9 @@ export function MapView({
       )}
 
       {geo && (
-        <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-black/60 px-3 py-1.5 backdrop-blur-sm">
-          <p className="text-xs font-semibold tracking-wide text-white">
-            {ogTrackMode ? 'OG track (driver GPS)' : geo.bacingerName}
+        <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-black/60 px-3.5 py-2 backdrop-blur-sm">
+          <p className="text-xs font-semibold tracking-wide text-white leading-snug">
+            {geo.bacingerName}
           </p>
         </div>
       )}

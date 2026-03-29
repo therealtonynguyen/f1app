@@ -216,7 +216,11 @@ export function useF1Data() {
 
     if (isLive) {
       carPollRef.current = setInterval(async () => {
-        const pts = await api.fetchCarData(sess.session_key, selectedDriverNumber, sess);
+        const [laps, pts] = await Promise.all([
+          api.fetchLaps(sess.session_key, selectedDriverNumber),
+          api.fetchCarData(sess.session_key, selectedDriverNumber, sess),
+        ]);
+        setSelectedDriverLaps(laps);
         if (pts.length > 0) setSelectedDriverCarData(pts[pts.length - 1]);
       }, POLL_MS);
     }

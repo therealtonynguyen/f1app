@@ -12,8 +12,13 @@ interface ToggleAllProps {
 /** Master switch: show every driver on the map vs hide everyone. */
 export function ToggleAllTrackVisibility({ allVisible, onToggle }: ToggleAllProps) {
   return (
-    <div className="flex items-center gap-1.5 shrink-0">
-      <span className="text-[8px] font-bold uppercase tracking-wider text-gray-500">All</span>
+    <div className="flex items-center gap-2 shrink-0">
+      <span
+        className="text-[8px] font-bold uppercase tracking-wider"
+        style={{ color: 'var(--ios-label-tertiary)' }}
+      >
+        All
+      </span>
       <button
         type="button"
         role="switch"
@@ -24,13 +29,14 @@ export function ToggleAllTrackVisibility({ allVisible, onToggle }: ToggleAllProp
           e.stopPropagation();
           onToggle();
         }}
-        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 ${
-          allVisible ? 'bg-emerald-600/90' : 'bg-[#2a2a3c]'
-        }`}
+        className="relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ios-blue)]/35"
+        style={{
+          background: allVisible ? 'var(--ios-green)' : 'var(--ios-grouped-tertiary)',
+        }}
       >
         <span
-          className={`pointer-events-none absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${
-            allVisible ? 'translate-x-4' : 'translate-x-0'
+          className={`pointer-events-none absolute top-[2px] left-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-md transition-transform duration-200 ease-out ${
+            allVisible ? 'translate-x-5' : 'translate-x-0'
           }`}
         />
       </button>
@@ -51,13 +57,12 @@ export function TrackVisibilitySwitch({ visible, onToggle }: Props) {
         e.stopPropagation();
         onToggle();
       }}
-      className={`relative shrink-0 w-9 h-5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 ${
-        visible ? 'bg-emerald-600/90' : 'bg-[#2a2a3c]'
-      }`}
+      className="relative shrink-0 w-[51px] h-[31px] rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ios-blue)]/35"
+      style={{ background: visible ? 'var(--ios-green)' : 'var(--ios-grouped-tertiary)' }}
     >
       <span
-        className={`pointer-events-none absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${
-          visible ? 'translate-x-4' : 'translate-x-0'
+        className={`pointer-events-none absolute top-[2px] left-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-md transition-transform duration-200 ease-out ${
+          visible ? 'translate-x-5' : 'translate-x-0'
         }`}
       />
     </button>
