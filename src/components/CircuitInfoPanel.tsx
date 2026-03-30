@@ -33,7 +33,7 @@ export function CircuitInfoPanel({
       style={{ background: 'var(--ios-grouped)', borderColor: 'var(--ios-separator)' }}
     >
       {/* Circuit header */}
-      <div className="p-4 border-b" style={{ borderColor: 'var(--ios-separator)' }}>
+      <div className="p-5 border-b" style={{ borderColor: 'var(--ios-separator)' }}>
         <div className="flex items-center gap-2.5 mb-1.5">
           <span
             className="text-[10px] font-bold tracking-widest uppercase"
@@ -76,7 +76,7 @@ export function CircuitInfoPanel({
 
       {/* Circuit geometry stats */}
       {geo && (
-        <div className="p-4 border-b grid grid-cols-2 gap-3" style={{ borderColor: 'var(--ios-separator)' }}>
+        <div className="p-5 border-b grid grid-cols-2 gap-4" style={{ borderColor: 'var(--ios-separator)' }}>
           <StatCard
             label="Track Points"
             value={geo.coordinates.length.toString()}
@@ -100,14 +100,14 @@ export function CircuitInfoPanel({
 
       {/* Session info */}
       {session && (
-        <div className="p-4 border-b" style={{ borderColor: 'var(--ios-separator)' }}>
+        <div className="p-5 border-b" style={{ borderColor: 'var(--ios-separator)' }}>
           <p
-            className="text-[10px] font-bold tracking-widest uppercase mb-2"
+            className="text-[10px] font-bold tracking-widest uppercase mb-3"
             style={{ color: 'var(--ios-label-tertiary)' }}
           >
             Session
           </p>
-          <div className="space-y-1.5">
+          <div className="space-y-2.5">
             <Row label="Name" value={session.session_name} />
             <Row label="Type" value={session.session_type} />
             <Row label="Status" value={session.status} highlight={session.status === 'started'} />
@@ -126,8 +126,8 @@ export function CircuitInfoPanel({
 
       {/* Drivers on track */}
       {drivers.length > 0 && (
-        <div className="flex-1 p-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex-1 p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
             <p
               className="text-[10px] font-bold uppercase tracking-widest"
               style={{ color: 'var(--ios-label-tertiary)' }}
@@ -147,7 +147,7 @@ export function CircuitInfoPanel({
               </span>
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {drivers
               .filter((d) => d.currentLocation)
               .map((driver) => {

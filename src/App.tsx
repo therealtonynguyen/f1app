@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { useF1Data } from './hooks/useF1Data';
 import { useLapReplay } from './hooks/useLapReplay';
 import { useReplayCarTelemetry } from './hooks/useReplayCarTelemetry';
@@ -6,6 +7,7 @@ import { useCircuitData } from './hooks/useCircuitData';
 import { useTheme } from './hooks/useTheme';
 import { Header } from './components/Header';
 import { DriverPanel } from './components/DriverPanel';
+import { RaceResultsPanel } from './components/RaceResultsPanel';
 import { ReplayControls } from './components/ReplayControls';
 import { MapView } from './components/MapView';
 import { CircuitMap } from './components/CircuitMap';
@@ -136,6 +138,26 @@ export default function App() {
   const isGraphsMode = mode === 'graphs';
   const isReplayLikeMode = isReplayMode || isGraphsMode;
   const isMapMode = mode === 'map';
+  const isResultsMode = mode === 'results';
+
+  // A finished Race session (not a Sprint) — swap Live → Results
+  const isFinishedRace = useMemo(() => {
+    if (!session) return false;
+    const type = session.session_type?.toLowerCase() ?? '';
+    const name = session.session_name?.toLowerCase() ?? '';
+    if (type !== 'race' || name.includes('sprint')) return false;
+    if (session.status === 'finished') return true;
+    // Fall back to date check for old sessions without status
+    const end = session.date_end ? new Date(session.date_end).getTime() : null;
+    return end != null && end < Date.now();
+  }, [session]);
+
+  // Auto-switch to Results when loading a finished race, back to Live for live sessions
+  useEffect(() => {
+    if (!session) return;
+    if (isFinishedRace && (mode === 'live')) setMode('results');
+    if (!isFinishedRace && mode === 'results') setMode('live');
+  }, [isFinishedRace, session?.session_key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isGraphsMode) setGraphsExpandedDriver(null);
@@ -170,6 +192,7 @@ export default function App() {
       <Header
         session={session}
         isLive={isLive}
+        isFinishedRace={isFinishedRace}
         isLoading={isLoading}
         isLoadingTrack={circuit.isLoading}
         onRefresh={refresh}
@@ -350,12 +373,13 @@ export default function App() {
 
                   {/* Layer toggle — bottom-centre */}
                   <div
-                    className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1000] flex rounded-full p-0.5 gap-0.5 shadow-lg"
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center rounded-2xl gap-1 shadow-lg"
                     style={{
-                      background: 'rgba(28,28,30,0.72)',
+                      padding: '5px 6px',
+                      background: 'rgba(28,28,30,0.82)',
                       WebkitBackdropFilter: 'saturate(180%) blur(20px)',
                       backdropFilter: 'saturate(180%) blur(20px)',
-                      border: '0.5px solid rgba(255,255,255,0.12)',
+                      border: '0.5px solid rgba(255,255,255,0.14)',
                     }}
                   >
                     {(['satellite', 'circuit'] as MapLayer[]).map((layer) => (
@@ -363,74 +387,50 @@ export default function App() {
                         key={layer}
                         type="button"
                         onClick={() => setMapLayer(layer)}
-                        className="rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-all duration-200"
-                        style={
-                          mapLayer === layer
-                            ? { background: 'rgba(255,255,255,0.18)', color: '#fff' }
-                            : { background: 'transparent', color: 'rgba(255,255,255,0.45)' }
-                        }
+                        className="rounded-xl text-[12px] font-semibold transition-all duration-200 whitespace-nowrap"
+                        style={{
+                          padding: '7px 16px',
+                          ...(mapLayer === layer
+                            ? { background: 'rgba(255,255,255,0.16)', color: '#fff' }
+                            : { background: 'transparent', color: 'rgba(255,255,255,0.4)' }),
+                        }}
                       >
-                        {layer === 'satellite' ? '🛰 Satellite' : '🏎 Circuit'}
+                        {layer === 'satellite' ? '🛰  Satellite' : '🏎  Circuit'}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-              <button
-                type="button"
-                aria-expanded={driversPanelOpen}
-                onClick={() => setDriversPanelOpen((o) => !o)}
-                className="absolute z-[1000] rounded-full px-3.5 py-2 text-[13px] font-semibold shadow-lg transition-opacity active:opacity-80"
-                style={{
-                  top: 'max(12px, env(safe-area-inset-top))',
-                  right: 'max(12px, env(safe-area-inset-right))',
-                  background: 'rgba(28,28,30,0.72)',
-                  WebkitBackdropFilter: 'saturate(180%) blur(20px)',
-                  backdropFilter: 'saturate(180%) blur(20px)',
-                  border: '0.5px solid rgba(255,255,255,0.12)',
-                  color: 'var(--ios-blue)',
-                }}
-              >
-                {driversPanelOpen ? 'Hide' : 'Drivers'}
-              </button>
-
-              {isReplayLikeMode && (
-                <button
-                  type="button"
-                  aria-expanded={replayBarVisible}
-                  aria-controls="replay-controls-panel"
-                  onClick={() => setReplayBarVisible((v) => !v)}
-                  className="absolute z-[1000] rounded-full px-3.5 py-2 text-[13px] font-semibold shadow-lg transition-opacity active:opacity-80"
-                  style={{
-                    bottom: 'max(12px, env(safe-area-inset-bottom))',
-                    left: 'max(12px, env(safe-area-inset-left))',
-                    background: 'rgba(28,28,30,0.72)',
-                    WebkitBackdropFilter: 'saturate(180%) blur(20px)',
-                    backdropFilter: 'saturate(180%) blur(20px)',
-                    border: '0.5px solid rgba(255,255,255,0.12)',
-                    color: 'var(--ios-blue)',
-                  }}
-                >
-                  {replayBarVisible ? 'Hide controls' : 'Show controls'}
-                </button>
-              )}
             </div>
+
+            {/* Panel toggle — permanent 24 px strip between map and right panel */}
+            <button
+              type="button"
+              aria-expanded={driversPanelOpen}
+              aria-label={driversPanelOpen ? 'Collapse panel' : 'Expand panel'}
+              onClick={() => setDriversPanelOpen((o) => !o)}
+              className="shrink-0 flex items-center justify-center transition-colors hover:brightness-110 active:brightness-90"
+              style={{
+                width: 24,
+                background: 'var(--ios-grouped)',
+                borderLeft: '0.5px solid var(--ios-separator)',
+                borderRight: '0.5px solid var(--ios-separator)',
+              }}
+            >
+              {driversPanelOpen
+                ? <ChevronRight className="h-4 w-4" style={{ color: 'var(--ios-label-secondary)' }} />
+                : <ChevronLeft className="h-4 w-4" style={{ color: 'var(--ios-label-secondary)' }} />}
+            </button>
 
             {/* Right panel */}
             <div
-              className={`flex min-h-0 shrink-0 flex-col overflow-hidden border-l transition-[width] duration-200 ease-out ${
-                driversPanelOpen ? 'w-72' : 'w-0 border-transparent'
-              }`}
-              style={
-                driversPanelOpen
-                  ? {
-                      background: 'var(--ios-grouped)',
-                      borderColor: 'var(--ios-separator)',
-                    }
-                  : undefined
-              }
+              className={`flex min-h-0 shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-out`}
+              style={{
+                width: driversPanelOpen ? 272 : 0,
+                background: 'var(--ios-grouped)',
+              }}
             >
-              <div className="flex h-full w-72 min-h-0 flex-col">
+              <div className="flex h-full min-h-0 flex-col" style={{ width: 272 }}>
                 {isMapMode ? (
                   <CircuitInfoPanel
                     meta={circuit.meta}
@@ -443,6 +443,13 @@ export default function App() {
                     allDriversVisibleOnTrack={allDriversVisibleOnTrack}
                     onToggleAllTrackVisibility={toggleAllTrackVisibility}
                     onToggleDriverTrackVisibility={toggleDriverTrackVisibility}
+                  />
+                ) : isResultsMode ? (
+                  <RaceResultsPanel
+                    drivers={drivers}
+                    session_name={session?.session_name ?? 'Race'}
+                    selectedDriverNumber={selectedDriverNumber}
+                    onSelectDriver={setSelectedDriverNumber}
                   />
                 ) : (
                   <DriverPanel
@@ -467,8 +474,34 @@ export default function App() {
             </div>
           </div>
 
-          {/* Replay Controls */}
-          {isReplayLikeMode && replayBarVisible && (
+          {/* Replay Controls — collapsible via tab handle */}
+          {isReplayLikeMode && (
+            <div>
+              {/* Collapse/expand handle */}
+              <button
+                type="button"
+                aria-expanded={replayBarVisible}
+                aria-controls="replay-controls-panel"
+                onClick={() => setReplayBarVisible((v) => !v)}
+                className="w-full flex items-center justify-center gap-2 transition-colors hover:brightness-110"
+                style={{
+                  height: 28,
+                  background: 'var(--ios-grouped)',
+                  borderTop: `0.5px solid var(--ios-separator)`,
+                }}
+              >
+                <span
+                  className="text-[11px] font-semibold uppercase tracking-widest"
+                  style={{ color: 'var(--ios-label-secondary)' }}
+                >
+                  Replay Controls
+                </span>
+                {replayBarVisible
+                  ? <ChevronDown className="h-3.5 w-3.5" style={{ color: 'var(--ios-label-secondary)' }} />
+                  : <ChevronUp className="h-3.5 w-3.5" style={{ color: 'var(--ios-label-secondary)' }} />}
+              </button>
+
+              {replayBarVisible && (
             <div id="replay-controls-panel">
               <ReplayControls
                 driverData={replay.driverData}
@@ -486,6 +519,8 @@ export default function App() {
                 onSeek={replay.seek}
                 onSpeedChange={replay.setSpeed}
               />
+            </div>
+              )}
             </div>
           )}
         </div>

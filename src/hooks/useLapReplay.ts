@@ -207,6 +207,20 @@ export function useLapReplay(
     []
   );
 
+  // Reset everything when the session changes so stale data never appears on a new circuit
+  useEffect(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    isPlayingRef.current = false;
+    lastTsRef.current = null;
+    currentTimeRef.current = 0;
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDriverData([]);
+    setError(null);
+    setProgress(0);
+    setLoadingLabel('');
+  }, [sessionKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {

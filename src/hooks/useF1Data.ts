@@ -126,13 +126,16 @@ export function useF1Data(_initialSessionKey?: number) {
   const initialize = useCallback(async (overrideSessionKey?: number, attempt = 0) => {
     setIsLoading(true);
     setError(null);
-    // Clear stale data when switching sessions
+    // Clear ALL stale data when switching sessions
     setDrivers([]);
     setDriverLocations(new Map());
     setPositions(new Map());
     setIntervals(new Map());
     setTrackOutline([]);
     setTrackSpeedKmhByDriver(new Map());
+    setSelectedDriverNumber(null);
+    setSelectedDriverLaps([]);
+    setSelectedDriverCarData(null);
     trackOutlineRef.current = [];
     lastLocSampleRef.current.clear();
 
@@ -157,16 +160,28 @@ export function useF1Data(_initialSessionKey?: number) {
       setDrivers(driverData);
 
       if (driverData.length > 0) {
-        const outlineDriver = driverData[0].driver_number;
-        api
-          .fetchCleanTrackLap(sessionData.session_key, outlineDriver)
-          .then((pts) => {
+        // Try up to 4 drivers in order; use the first that returns a full lap
+        const candidateDrivers = driverData.slice(0, 4).map((d) => d.driver_number);
+        (async () => {
+          for (const driverNumber of candidateDrivers) {
+            try {
+              const pts = await api.fetchCleanTrackLap(sessionData.session_key, driverNumber);
+              if (pts.length >= 50) {
+                trackOutlineRef.current = pts;
+                setTrackOutline(pts);
+                return;
+              }
+            } catch { /* try next driver */ }
+          }
+          // Last resort: use whatever the first driver returned, even if sparse
+          try {
+            const pts = await api.fetchCleanTrackLap(sessionData.session_key, candidateDrivers[0]);
             if (pts.length >= 10) {
               trackOutlineRef.current = pts;
               setTrackOutline(pts);
             }
-          })
-          .catch(() => {});
+          } catch { /* no track outline available */ }
+        })();
       }
 
       // Fetch live data (positions, intervals, current locations)

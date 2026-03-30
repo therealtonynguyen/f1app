@@ -8,6 +8,7 @@
 import { useMemo } from 'react';
 import type { DriverWithData, Location } from '../types/openf1';
 import type { ReplayPoint } from '../hooks/useLapReplay';
+import { metersPerUnitFromTrackOutline, speedKmhFromReplayTrail } from '../lib/locationSpeed';
 
 // ─── Douglas-Peucker simplification ──────────────────────────────────────
 function perpDist(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
@@ -97,6 +98,7 @@ export function CircuitMap({
   const isReplayMode = replayPositions !== undefined;
 
   const transform = useMemo(() => buildTransform(trackOutline, VW, VH), [trackOutline]);
+  const metersPerUnit = useMemo(() => metersPerUnitFromTrackOutline(trackOutline), [trackOutline]);
 
   const trackPath = useMemo(() => {
     if (!transform || trackOutline.length < 4) return '';
@@ -188,42 +190,149 @@ export function CircuitMap({
       ))}
 
       {/* Driver dots */}
-      {driverDots.map(({ driver, sx, sy, isSelected, color }) => (
-        <g
-          key={driver.driver_number}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectDriver(driver.driver_number === selectedDriverNumber ? null : driver.driver_number);
-          }}
-          style={{ cursor: 'pointer' }}
-        >
-          {isSelected && (
-            <circle cx={sx} cy={sy} r={18} fill={color} fillOpacity={0.2} filter="url(#dot-glow)" />
-          )}
-          <circle
-            cx={sx}
-            cy={sy}
-            r={isSelected ? 9 : 6}
-            fill={color}
-            stroke={isSelected ? '#ffffff' : 'rgba(0,0,0,0.4)'}
-            strokeWidth={isSelected ? 2.5 : 1}
-            className="driver-dot"
-          />
-          {isSelected && (
-            <text
-              x={sx}
-              y={sy - 14}
-              textAnchor="middle"
-              fontSize={10}
-              fontWeight="700"
-              fill="#ffffff"
-              style={{ fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', pointerEvents: 'none' }}
-            >
-              {driver.name_acronym}
-            </text>
-          )}
-        </g>
-      ))}
+      {driverDots.map(({ driver, sx, sy, isSelected, color }) => {
+        const CARD_W = 150;
+        const CARD_H = driver.headshot_url ? 108 : 80;
+        const CARD_GAP = 14;
+        // Clamp so popover never goes outside the viewBox
+        const foX = Math.max(4, Math.min(VW - CARD_W - 4, sx - CARD_W / 2));
+        const foY = Math.max(4, sy - CARD_H - CARD_GAP);
+
+        const speedKmh = isReplayMode
+          ? speedKmhFromReplayTrail(replayTrails?.get(driver.driver_number) ?? [], metersPerUnit)
+          : (driver.trackSpeedKmh ?? null);
+        const speedMph = speedKmh != null && Number.isFinite(speedKmh)
+          ? Math.round(speedKmh * 0.621371)
+          : null;
+        const speedText = speedMph != null
+          ? `${speedMph} mph · ${Math.round(speedKmh!)} km/h`
+          : null;
+        const posText = driver.position != null ? `P${driver.position}` : null;
+
+        return (
+          <g
+            key={driver.driver_number}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectDriver(driver.driver_number === selectedDriverNumber ? null : driver.driver_number);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            {isSelected && (
+              <circle cx={sx} cy={sy} r={18} fill={color} fillOpacity={0.2} filter="url(#dot-glow)" />
+            )}
+            <circle
+              cx={sx}
+              cy={sy}
+              r={isSelected ? 9 : 6}
+              fill={color}
+              stroke={isSelected ? '#ffffff' : 'rgba(0,0,0,0.4)'}
+              strokeWidth={isSelected ? 2.5 : 1}
+            />
+
+            {/* Popover card using foreignObject */}
+            {isSelected && (
+              <foreignObject x={foX} y={foY} width={CARD_W} height={CARD_H} style={{ overflow: 'visible' }}>
+                <div
+                  // @ts-expect-error – xmlns is required for SVG foreignObject HTML
+                  xmlns="http://www.w3.org/1999/xhtml"
+                  style={{
+                    background: 'rgba(18,18,20,0.94)',
+                    border: `1.5px solid ${color}`,
+                    borderRadius: 10,
+                    padding: '8px 12px',
+                    width: CARD_W,
+                    boxSizing: 'border-box',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
+                    textAlign: 'center',
+                    position: 'relative',
+                    boxShadow: `0 4px 20px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)`,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Close button */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onSelectDriver(null); }}
+                    style={{
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.12)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'rgba(255,255,255,0.7)',
+                      fontSize: 10,
+                      lineHeight: 1,
+                      padding: 0,
+                    }}
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
+
+                  {/* Headshot */}
+                  {driver.headshot_url && (
+                    <img
+                      src={driver.headshot_url}
+                      referrerPolicy="no-referrer"
+                      alt={driver.name_acronym}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: '50%',
+                        border: `2px solid ${color}`,
+                        objectFit: 'cover',
+                        display: 'block',
+                        margin: '0 auto 5px',
+                      }}
+                    />
+                  )}
+
+                  {/* Acronym */}
+                  <div style={{
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    letterSpacing: '0.5px',
+                  }}>
+                    {driver.name_acronym}
+                  </div>
+
+                  {/* Speed */}
+                  {speedText != null && (
+                    <div style={{
+                      color: 'rgba(255,255,255,0.55)',
+                      fontSize: 11,
+                      marginTop: 3,
+                    }}>
+                      {speedText}
+                    </div>
+                  )}
+
+                  {/* Position */}
+                  {posText != null && (
+                    <div style={{
+                      color: 'rgba(255,255,255,0.38)',
+                      fontSize: 10,
+                      marginTop: 1,
+                    }}>
+                      {posText}
+                    </div>
+                  )}
+                </div>
+              </foreignObject>
+            )}
+          </g>
+        );
+      })}
     </svg>
   );
 }

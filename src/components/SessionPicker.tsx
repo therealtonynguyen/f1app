@@ -1,17 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, CheckCircle2, Radio } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { X, ChevronDown, CheckCircle2, Radio } from 'lucide-react';
 import * as api from '@/api/openf1';
 import type { Meeting, Session } from '@/types/openf1';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 interface SessionPickerProps {
@@ -53,6 +45,7 @@ export function SessionPicker({ open, onOpenChange, currentSessionKey, onSelect 
   const [expandedKey, setExpandedKey] = useState<number | null>(null);
   const [sessionsByMeeting, setSessionsByMeeting] = useState<Map<number, Session[]>>(new Map());
   const [sessionsLoading, setSessionsLoading] = useState<Set<number>>(new Set());
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const loadMeetings = useCallback(async (y: number) => {
     setMeetingsLoading(true);
@@ -70,6 +63,14 @@ export function SessionPicker({ open, onOpenChange, currentSessionKey, onSelect 
 
   useEffect(() => { if (open) loadMeetings(year); }, [open, year, loadMeetings]);
 
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onOpenChange]);
+
   const toggleMeeting = useCallback(async (key: number) => {
     if (expandedKey === key) { setExpandedKey(null); return; }
     setExpandedKey(key);
@@ -85,45 +86,99 @@ export function SessionPicker({ open, onOpenChange, currentSessionKey, onSelect 
     }
   }, [expandedKey, sessionsByMeeting]);
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[88vh] flex flex-col sm:max-w-lg sm:mx-auto">
-        <SheetHeader>
-          <SheetTitle>Select Session</SheetTitle>
-        </SheetHeader>
+  if (!open) return null;
 
-        {/* Year tabs */}
-        <div className="flex gap-2 px-5 py-3 border-b border-border/60 shrink-0">
+  return (
+    /* Backdrop */
+    <div
+      className="fixed inset-0 z-[2000] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onOpenChange(false); }}
+    >
+      {/* Panel */}
+      <div
+        ref={panelRef}
+        className="relative flex flex-col w-full max-w-[480px] rounded-2xl overflow-hidden shadow-2xl"
+        style={{
+          background: 'var(--ios-grouped)',
+          border: '0.5px solid var(--ios-separator)',
+          maxHeight: 'min(88vh, 680px)',
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select session"
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-5 py-4 shrink-0"
+          style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
+        >
+          <h2
+            className="text-[17px] font-semibold"
+            style={{ color: 'var(--ios-label)' }}
+          >
+            Select Session
+          </h2>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="flex items-center justify-center w-8 h-8 rounded-full transition-opacity hover:opacity-70"
+            style={{ background: 'var(--ios-fill)' }}
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" style={{ color: 'var(--ios-label)' }} />
+          </button>
+        </div>
+
+        {/* Year selector */}
+        <div
+          className="flex gap-3 px-5 py-4 shrink-0"
+          style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
+        >
           {YEARS.map((y) => (
-            <Button
+            <button
               key={y}
-              variant={year === y ? 'secondary' : 'ghost'}
-              size="sm"
+              type="button"
               onClick={() => setYear(y)}
-              className={year === y ? 'text-foreground' : ''}
+              className="rounded-xl px-6 py-2.5 text-[13px] font-semibold transition-colors"
+              style={
+                year === y
+                  ? { background: '#e10600', color: '#fff' }
+                  : { background: 'var(--ios-fill)', color: 'var(--ios-label-secondary)' }
+              }
             >
               {y}
-            </Button>
+            </button>
           ))}
         </div>
 
         {/* Meeting list */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           {meetingsLoading && (
             <div className="flex items-center justify-center py-16">
-              <div className="h-6 w-6 rounded-full border-2 border-transparent border-t-accent animate-spin" />
+              <div
+                className="h-6 w-6 rounded-full border-2 border-transparent animate-spin"
+                style={{ borderTopColor: 'var(--ios-blue)' }}
+              />
             </div>
           )}
           {meetingsError && (
             <div className="text-center py-10 px-6 space-y-3">
-              <p className="text-sm text-muted-foreground">{meetingsError}</p>
-              <Button variant="ghost" size="sm" onClick={() => loadMeetings(year)}>
+              <p className="text-sm" style={{ color: 'var(--ios-label-secondary)' }}>
+                {meetingsError}
+              </p>
+              <button
+                type="button"
+                onClick={() => loadMeetings(year)}
+                className="text-[13px] font-medium"
+                style={{ color: 'var(--ios-blue)' }}
+              >
                 Retry
-              </Button>
+              </button>
             </div>
           )}
           {!meetingsLoading && !meetingsError && meetings.length === 0 && (
-            <p className="text-center py-10 text-sm text-muted-foreground">
+            <p className="text-center py-10 text-sm" style={{ color: 'var(--ios-label-tertiary)' }}>
               No races found for {year}
             </p>
           )}
@@ -135,43 +190,64 @@ export function SessionPicker({ open, onOpenChange, currentSessionKey, onSelect 
 
             return (
               <div key={meeting.meeting_key}>
-                {idx > 0 && <Separator />}
+                {idx > 0 && (
+                  <div style={{ height: '0.5px', background: 'var(--ios-separator)', marginLeft: 56 }} />
+                )}
 
                 {/* Meeting row */}
                 <button
                   type="button"
                   onClick={() => toggleMeeting(meeting.meeting_key)}
-                  className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-secondary/40 transition-colors"
+                  className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors"
+                  style={{ background: isExpanded ? 'var(--ios-grouped-secondary)' : 'transparent' }}
+                  onMouseEnter={(e) => {
+                    if (!isExpanded) (e.currentTarget as HTMLElement).style.background = 'var(--ios-fill)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = isExpanded
+                      ? 'var(--ios-grouped-secondary)'
+                      : 'transparent';
+                  }}
                 >
-                  <span className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0">
+                  <span
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                    style={{
+                      background: 'var(--ios-grouped-tertiary)',
+                      color: 'var(--ios-label-tertiary)',
+                    }}
+                  >
                     R{idx + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-semibold text-foreground truncate">
+                    <p className="text-[14px] font-semibold truncate" style={{ color: 'var(--ios-label)' }}>
                       {meeting.meeting_name}
                     </p>
-                    <p className="text-[12px] text-muted-foreground mt-0.5 truncate">
+                    <p className="text-[12px] mt-0.5 truncate" style={{ color: 'var(--ios-label-secondary)' }}>
                       {meeting.location} · {meeting.country_name} · {formatDate(meeting.date_start)}
                     </p>
                   </div>
                   <ChevronDown
                     className={cn(
-                      'h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200',
+                      'h-4 w-4 shrink-0 transition-transform duration-200',
                       isExpanded && 'rotate-180'
                     )}
+                    style={{ color: 'var(--ios-label-tertiary)' }}
                   />
                 </button>
 
-                {/* Expanded sessions */}
+                {/* Sessions sub-list */}
                 {isExpanded && (
-                  <div className="bg-secondary/20">
+                  <div style={{ background: 'var(--ios-grouped-secondary)' }}>
                     {isLoadingSessions && (
                       <div className="flex justify-center py-4">
-                        <div className="h-5 w-5 rounded-full border-2 border-transparent border-t-accent animate-spin" />
+                        <div
+                          className="h-4 w-4 rounded-full border-2 border-transparent animate-spin"
+                          style={{ borderTopColor: 'var(--ios-blue)' }}
+                        />
                       </div>
                     )}
                     {sessions?.length === 0 && !isLoadingSessions && (
-                      <p className="text-center py-4 text-xs text-muted-foreground">
+                      <p className="text-center py-4 text-xs" style={{ color: 'var(--ios-label-tertiary)' }}>
                         No session data available
                       </p>
                     )}
@@ -181,33 +257,47 @@ export function SessionPicker({ open, onOpenChange, currentSessionKey, onSelect 
                       const isLive = session.status === 'started';
                       return (
                         <div key={session.session_key}>
-                          {si > 0 && <Separator className="ml-14" />}
+                          {si > 0 && (
+                            <div style={{ height: '0.5px', background: 'var(--ios-separator)', marginLeft: 56 }} />
+                          )}
                           <button
                             type="button"
                             onClick={() => { onSelect(session.session_key); onOpenChange(false); }}
-                            className={cn(
-                              'w-full flex items-center gap-3 px-5 py-3 text-left transition-colors',
-                              isCurrent
-                                ? 'bg-accent/10'
-                                : 'hover:bg-secondary/40'
-                            )}
+                            className="w-full flex items-center gap-3 px-5 py-3 text-left transition-colors"
+                            style={{ background: isCurrent ? 'rgba(10,132,255,0.1)' : 'transparent' }}
+                            onMouseEnter={(e) => {
+                              if (!isCurrent) (e.currentTarget as HTMLElement).style.background = 'var(--ios-fill)';
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.currentTarget as HTMLElement).style.background = isCurrent
+                                ? 'rgba(10,132,255,0.1)'
+                                : 'transparent';
+                            }}
                           >
-                            <Badge variant={isLive ? 'live' : variant} className="w-10 justify-center shrink-0">
+                            <Badge
+                              variant={isLive ? 'live' : variant}
+                              className="w-10 justify-center shrink-0"
+                            >
                               {isLive ? <Radio className="h-2.5 w-2.5" /> : label}
                             </Badge>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[13px] font-medium text-foreground truncate">
+                              <p className="text-[13px] font-medium truncate" style={{ color: 'var(--ios-label)' }}>
                                 {session.session_name}
                               </p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                              <p className="text-[11px] mt-0.5" style={{ color: 'var(--ios-label-secondary)' }}>
                                 {formatDate(session.date_start)}
                                 {isLive && (
-                                  <span className="ml-2 text-green-400 font-semibold">● Live now</span>
+                                  <span className="ml-2 font-semibold" style={{ color: 'var(--ios-green)' }}>
+                                    ● Live now
+                                  </span>
                                 )}
                               </p>
                             </div>
                             {isCurrent && (
-                              <CheckCircle2 className="h-4 w-4 text-accent shrink-0" />
+                              <CheckCircle2
+                                className="h-4 w-4 shrink-0"
+                                style={{ color: 'var(--ios-blue)' }}
+                              />
                             )}
                           </button>
                         </div>
@@ -219,7 +309,7 @@ export function SessionPicker({ open, onOpenChange, currentSessionKey, onSelect 
             );
           })}
         </ScrollArea>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </div>
   );
 }

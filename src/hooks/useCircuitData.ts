@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Session } from '../types/openf1';
+import { getCached, setCached } from '../db/cache';
 
 export interface CircuitMeta {
   circuitId: string;
@@ -85,14 +86,31 @@ const OPENF1_TO_JOLPICA: Record<string, string> = {
 const BACINGER_GEOJSON_URL =
   'https://raw.githubusercontent.com/bacinger/f1-circuits/master/f1-circuits.geojson';
 
-let cachedGeoJSON: GeoJSON.FeatureCollection | null = null;
+// In-memory cache so we don't even hit IndexedDB on the second call within
+// the same page session (e.g. when switching between circuits).
+let memGeoJSON: GeoJSON.FeatureCollection | null = null;
 
 async function loadGeoJSON(): Promise<GeoJSON.FeatureCollection> {
-  if (cachedGeoJSON) return cachedGeoJSON;
+  // 1. In-memory (instant)
+  if (memGeoJSON) return memGeoJSON;
+
+  // 2. IndexedDB (fast, no network)
+  const dbCached = await getCached<GeoJSON.FeatureCollection>('geoJSON');
+  if (dbCached) {
+    console.log('[cache] geoJSON — hit');
+    memGeoJSON = dbCached;
+    return dbCached;
+  }
+
+  // 3. Network (slow — only happens once ever)
+  console.log('[cache] geoJSON — miss, fetching from GitHub…');
   const res = await fetch(BACINGER_GEOJSON_URL);
   if (!res.ok) throw new Error('Failed to load circuit GeoJSON');
-  cachedGeoJSON = await res.json();
-  return cachedGeoJSON!;
+  const data: GeoJSON.FeatureCollection = await res.json();
+
+  memGeoJSON = data;
+  await setCached('geoJSON', data);
+  return data;
 }
 
 function resolveJolpikaId(session: Session): string | null {
@@ -122,19 +140,31 @@ export function useCircuitData(session: Session | null): CircuitData {
 
     async function load() {
       try {
-        // 1. Fetch Jolpica metadata (year-specific circuit list)
+        // 1. Circuit metadata from Jolpica (lat/lng, circuit name, Wikipedia URL)
+        //    Cached in IndexedDB — only fetched once per year, then instant.
         const year = session!.year ?? new Date().getFullYear();
-        const metaRes = await fetch(
-          `https://api.jolpi.ca/ergast/f1/${year}/circuits.json?limit=30`
-        );
-        if (!metaRes.ok) throw new Error('Jolpica circuits fetch failed');
-        const metaJson = await metaRes.json();
-        const circuits: {
+        const metaCacheKey = `circuitMeta:${year}`;
+
+        type JolpikaCircuit = {
           circuitId: string;
           circuitName: string;
           url: string;
           Location: { lat: string; long: string; locality: string; country: string };
-        }[] = metaJson.MRData.CircuitTable.Circuits;
+        };
+
+        let circuits = await getCached<JolpikaCircuit[]>(metaCacheKey);
+        if (circuits) {
+          console.log(`[cache] circuitMeta:${year} — hit`);
+        } else {
+          console.log(`[cache] circuitMeta:${year} — miss, fetching from Jolpica…`);
+          const metaRes = await fetch(
+            `https://api.jolpi.ca/ergast/f1/${year}/circuits.json?limit=30`
+          );
+          if (!metaRes.ok) throw new Error('Jolpica circuits fetch failed');
+          const metaJson = await metaRes.json();
+          circuits = metaJson.MRData.CircuitTable.Circuits as JolpikaCircuit[];
+          await setCached(metaCacheKey, circuits);
+        }
 
         let found = jolpikaId ? circuits.find((c) => c.circuitId === jolpikaId) : null;
         if (!found) {

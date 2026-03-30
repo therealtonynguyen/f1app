@@ -1,13 +1,30 @@
-import { RefreshCw, Calendar, Sun, Moon } from 'lucide-react';
+import { RefreshCw, ChevronDown, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Session } from '@/types/openf1';
 import type { AppMode } from '@/types/appMode';
 import type { Theme } from '@/hooks/useTheme';
 
+// Country name → flag emoji (covers all current F1 circuits)
+const FLAG_MAP: Record<string, string> = {
+  'Bahrain': '🇧🇭', 'Saudi Arabia': '🇸🇦', 'Australia': '🇦🇺',
+  'Japan': '🇯🇵', 'China': '🇨🇳', 'United States': '🇺🇸',
+  'United States of America': '🇺🇸', 'Italy': '🇮🇹', 'Monaco': '🇲🇨',
+  'Canada': '🇨🇦', 'Spain': '🇪🇸', 'Austria': '🇦🇹',
+  'United Kingdom': '🇬🇧', 'Hungary': '🇭🇺', 'Belgium': '🇧🇪',
+  'Netherlands': '🇳🇱', 'Singapore': '🇸🇬', 'Mexico': '🇲🇽',
+  'Brazil': '🇧🇷', 'United Arab Emirates': '🇦🇪', 'Abu Dhabi': '🇦🇪',
+  'Azerbaijan': '🇦🇿', 'Qatar': '🇶🇦', 'Las Vegas': '🇺🇸',
+};
+
+function countryFlag(countryName: string): string {
+  return FLAG_MAP[countryName] ?? '🏁';
+}
+
 type HeaderProps = {
   session: Session | null;
   isLive: boolean;
+  isFinishedRace: boolean;
   isLoading: boolean;
   isLoadingTrack: boolean;
   onRefresh: () => void;
@@ -18,16 +35,24 @@ type HeaderProps = {
   onToggleTheme: () => void;
 };
 
-const MODES: { id: AppMode; label: string }[] = [
-  { id: 'live',   label: 'Live'   },
-  { id: 'replay', label: 'Replay' },
-  { id: 'graphs', label: 'Graphs' },
-  { id: 'map',    label: 'Map'    },
+const LIVE_MODES: { id: AppMode; label: string }[] = [
+  { id: 'live',    label: 'Live'    },
+  { id: 'replay',  label: 'Replay'  },
+  { id: 'graphs',  label: 'Graphs'  },
+  { id: 'map',     label: 'Map'     },
+];
+
+const FINISHED_MODES: { id: AppMode; label: string }[] = [
+  { id: 'results', label: 'Results' },
+  { id: 'replay',  label: 'Replay'  },
+  { id: 'graphs',  label: 'Graphs'  },
+  { id: 'map',     label: 'Map'     },
 ];
 
 export function Header({
   session,
   isLive,
+  isFinishedRace,
   isLoading,
   isLoadingTrack,
   onRefresh,
@@ -37,6 +62,7 @@ export function Header({
   theme,
   onToggleTheme,
 }: HeaderProps) {
+  const MODES = isFinishedRace ? FINISHED_MODES : LIVE_MODES;
   return (
     <header
       className="ios-nav-blur shrink-0 z-20"
@@ -73,25 +99,45 @@ export function Header({
 
           <div className="flex-1" />
 
-          {/* Race selection — right side */}
+          {/* Race selector */}
           {session && (
             <button
               type="button"
               onClick={onOpenSessionPicker}
               disabled={!onOpenSessionPicker}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-colors disabled:cursor-default"
+              className="flex items-center gap-2 text-left rounded-xl transition-all active:scale-95 disabled:cursor-default disabled:active:scale-100"
               style={{
-                background: 'var(--ios-fill)',
-                color: 'var(--ios-label)',
+                padding: '6px 10px 6px 8px',
+                background: 'var(--ios-grouped-secondary)',
+                border: '0.5px solid var(--ios-separator)',
               }}
             >
-              <Calendar className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--ios-blue)' }} />
-              <span className="text-[13px] font-medium truncate max-w-[140px]">
-                {session.location}
+              {/* Flag */}
+              <span className="text-[22px] leading-none shrink-0" aria-hidden>
+                {countryFlag(session.country_name)}
               </span>
-              <span className="text-[11px] hidden sm:block" style={{ color: 'var(--ios-label-secondary)' }}>
-                · {session.session_name}
-              </span>
+              {/* Text stack */}
+              <div className="flex flex-col min-w-0">
+                <span
+                  className="text-[14px] font-semibold leading-tight truncate max-w-[140px]"
+                  style={{ color: 'var(--ios-label)' }}
+                >
+                  {session.location}
+                </span>
+                <span
+                  className="text-[11px] leading-snug"
+                  style={{ color: 'var(--ios-label-secondary)' }}
+                >
+                  {session.session_name}
+                </span>
+              </div>
+              {/* Chevron */}
+              {onOpenSessionPicker && (
+                <ChevronDown
+                  className="h-3.5 w-3.5 shrink-0"
+                  style={{ color: 'var(--ios-label-tertiary)' }}
+                />
+              )}
             </button>
           )}
 

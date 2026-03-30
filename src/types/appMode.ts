@@ -1,1 +1,1 @@
-export type AppMode = 'live' | 'replay' | 'graphs' | 'map';
+export type AppMode = 'live' | 'results' | 'replay' | 'graphs' | 'map';

@@ -137,22 +137,26 @@ export function DriverPanel({
   onToggleAllTrackVisibility,
   onToggleDriverTrackVisibility,
 }: Props) {
-  const replayByDriver = new Map(replayDriverData.map((d) => [d.driver.driver_number, d]));
+  const replayByDriver = useMemo(
+    () => new Map(replayDriverData.map((d) => [d.driver.driver_number, d])),
+    [replayDriverData]
+  );
 
   // In replay mode, sort live by who has completed the most of their best lap
-  const sortedDrivers = replayMode
-    ? [...drivers].sort((a, b) => {
-        const pa = lapProgress(
-          replayByDriver.get(a.driver_number)?.bestLap.lap_duration,
-          replayCurrentTime
-        );
-        const pb = lapProgress(
-          replayByDriver.get(b.driver_number)?.bestLap.lap_duration,
-          replayCurrentTime
-        );
-        return pb - pa; // descending — most progress first
-      })
-    : drivers;
+  const sortedDrivers = useMemo(() => {
+    if (!replayMode) return drivers;
+    return [...drivers].sort((a, b) => {
+      const pa = lapProgress(
+        replayByDriver.get(a.driver_number)?.bestLap.lap_duration,
+        replayCurrentTime
+      );
+      const pb = lapProgress(
+        replayByDriver.get(b.driver_number)?.bestLap.lap_duration,
+        replayCurrentTime
+      );
+      return pb - pa; // descending — most progress first
+    });
+  }, [replayMode, drivers, replayByDriver, replayCurrentTime]);
 
   // Pre-compute leader progress for gap calculation
   const leaderProgress = replayMode && sortedDrivers.length > 0

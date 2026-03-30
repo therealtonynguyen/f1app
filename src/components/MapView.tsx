@@ -336,7 +336,9 @@ export function MapView({
             ? speedKmhFromReplayTrail(replayTrails?.get(driver.driver_number) ?? [], metersPerUnit)
             : driver.trackSpeedKmh ?? null;
           const speedLabel =
-            speedKm != null && Number.isFinite(speedKm) ? `${Math.round(speedKm)} km/h` : '—';
+            speedKm != null && Number.isFinite(speedKm)
+              ? `${Math.round(speedKm * 0.621371)} mph · ${Math.round(speedKm)} km/h`
+              : '—';
           iw.setContent(buildInfoWindowHtml({
             acronym: driver.name_acronym,
             speedText: speedLabel,
