@@ -9,6 +9,10 @@ import { AlpineBrandPage } from './pages/AlpineBrandPage';
 import { RacingBullsBrandPage } from './pages/RacingBullsBrandPage';
 import { AudiBrandPage } from './pages/AudiBrandPage';
 import { MercedesBrandPage } from './pages/MercedesBrandPage';
+import { HaasBrandPage } from './pages/HaasBrandPage';
+import { WilliamsBrandPage } from './pages/WilliamsBrandPage';
+import { McLarenBrandPage } from './pages/McLarenBrandPage';
+import { RedBullBrandPage } from './pages/RedBullBrandPage';
 import { GenerationsPage } from './pages/GenerationsPage';
 import { TeamCarHistoryPage } from './pages/TeamCarHistoryPage';
 import { F1DataApp } from './F1DataApp';
@@ -31,6 +35,10 @@ export default function App() {
         <Route path="/cars/racing-bulls" element={<RacingBullsBrandPage />} />
         <Route path="/cars/audi" element={<AudiBrandPage />} />
         <Route path="/cars/mercedes" element={<MercedesBrandPage />} />
+        <Route path="/cars/haas" element={<HaasBrandPage />} />
+        <Route path="/cars/williams" element={<WilliamsBrandPage />} />
+        <Route path="/cars/mclaren" element={<McLarenBrandPage />} />
+        <Route path="/cars/red-bull" element={<RedBullBrandPage />} />
         <Route path="/cars" element={<GenerationsPage />} />
         <Route path="/generations" element={<Navigate to="/cars" replace />} />
         <Route path="/data" element={<F1DataApp />} />

@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 
-/** FOM — Racing Bulls (VCARB) 2026 */
+/** FOM — Racing Bulls (VCARB) 2026 — 16×9 */
 const HERO_IMG =
-  'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/Racing%20Bulls%20(VCARB)/SI202601151062%20(1).webp';
+  'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/Racing%20Bulls%20(VCARB)/16x9%20single%20image%20(17).webp';
 
 const HIGHLIGHTS: readonly { title: string; subtitle: string; image: string }[] = [
   {
@@ -17,17 +17,14 @@ const HIGHLIGHTS: readonly { title: string; subtitle: string; image: string }[] 
   },
 ];
 
-/**
- * Team landing — Visa Cash App Racing Bulls–style: dark canvas, full-bleed hero, highlight cards.
- * Inspired by https://www.visacashapprb.com/int-en (layout + rhythm, not a pixel copy).
- */
+/** Team landing — full-bleed hero, highlight cards, chassis link. */
 export function RacingBullsBrandPage() {
   return (
     <div
       className="relative -mt-[var(--app-top-nav-offset)] flex min-h-0 flex-1 flex-col bg-[#060910] text-white"
       style={{ fontFamily: 'var(--ios-font)' }}
     >
-      {/* Hero — full viewport, headline anchored low like many F1 team hubs */}
+      {/* Hero — full-bleed image only */}
       <section className="relative min-h-[min(100dvh,960px)] w-full overflow-hidden">
         <img
           src={HERO_IMG}
@@ -37,29 +34,6 @@ export function RacingBullsBrandPage() {
           decoding="async"
           referrerPolicy="no-referrer"
         />
-        <div
-          className="absolute inset-0 bg-gradient-to-t from-[#060910] via-[#060910]/55 to-[#060910]/25"
-          aria-hidden
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#060910]/80 via-transparent to-[#060910]/40" aria-hidden />
-
-        <div className="relative z-10 flex min-h-[min(100dvh,960px)] flex-col justify-end px-6 pb-16 pt-32 sm:px-10 sm:pb-24 md:px-14 lg:px-20">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.42em] text-white/55">Formula One Team</p>
-          <h1 className="mt-4 max-w-[18ch] text-[clamp(2.75rem,8vw,5.5rem)] font-bold leading-[0.95] tracking-[-0.04em]">
-            Racing Bulls
-          </h1>
-          <p className="mt-6 max-w-xl text-[15px] font-normal leading-relaxed text-white/70 sm:text-[16px]">
-            Visa Cash App Racing Bulls — precision from Faenza, powered by Red Bull Ford Powertrains.
-          </p>
-          <a
-            href="https://www.visacashapprb.com/int-en"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-10 inline-flex w-fit items-center border border-white/25 bg-white/5 px-6 py-3 text-[13px] font-semibold tracking-wide text-white transition-colors hover:bg-white/10"
-          >
-            Official team site →
-          </a>
-        </div>
       </section>
 
       {/* Highlights — two-up cards (hub-style) */}

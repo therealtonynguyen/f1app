@@ -25,14 +25,14 @@ const TEAM_TILES: TeamTile[] = [
   },
   {
     name: 'Red Bull Racing',
-    path: '/cars/team/red-bull-racing',
+    path: '/cars/red-bull',
     logoUrl: 'https://www.freepnglogos.com/uploads/red-bull-logo/red-bull-energy-png-logo-10.png',
     maxWidthClass: 'max-w-[min(52vw,340px)]',
     maxHeight: 'min(24vh, 108px)',
   },
   {
     name: 'Williams',
-    path: '/cars/team/williams',
+    path: '/cars/williams',
     logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/f/f9/Logo_Williams_F1.png',
     maxWidthClass: 'max-w-[min(17vw,90px)]',
   },
@@ -50,8 +50,9 @@ const TEAM_TILES: TeamTile[] = [
   },
   {
     name: 'Haas',
-    path: '/cars/team/haas',
-    logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Logo_Haas_F1.png/330px-Logo_Haas_F1.png',
+    path: '/cars/haas',
+    logoUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Haas_F1_Team_Logo.svg/3840px-Haas_F1_Team_Logo.svg.png',
     maxWidthClass: 'max-w-[min(16vw,84px)]',
   },
   {
@@ -62,7 +63,7 @@ const TEAM_TILES: TeamTile[] = [
   },
   {
     name: 'McLaren',
-    path: '/cars/team/mclaren',
+    path: '/cars/mclaren',
     logoUrl: 'https://img.icons8.com/ios_filled/512/FD7E14/mclaren.png',
     maxWidthClass: 'max-w-[min(16vw,88px)]',
   },

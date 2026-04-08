@@ -41,6 +41,15 @@ const AUDI_GALLERY_IMGS = [
   'https://uploads.audi-mediacenter.com/system/production/media/129016/images/0ff1fdaaf94a967677ae20a3b5748c47fd5c7206/A251816_web_1920.jpg?1762964887',
   'https://uploads.audi-mediacenter.com/system/production/media/129007/images/880f87bb0f17f62df9d90d1691461a4156800c12/A251807_web_1920.jpg?1762964952',
   'https://uploads.audi-mediacenter.com/system/production/media/129009/images/3f845b208326925d445ba978fe482e6df337f7c8/A251809_web_1920.jpg?1762965364',
+  'https://uploads.audi-mediacenter.com/system/production/media/129041/images/ef358db8e148c1f516a58f9f1beaa2a1aaa21a7f/A251841_web_1920.jpg?1763024903',
+  'https://uploads.audi-mediacenter.com/system/production/media/129012/images/07e1e175b56debcd553354b300f8ac933e77391d/A251812_web_1920.jpg?1762965262',
+  'https://uploads.audi-mediacenter.com/system/production/media/129004/images/04bf16f409d91f051f47838877530081bb2296a2/A251804_web_1920.jpg?1762964952',
+  'https://uploads.audi-mediacenter.com/system/production/media/129011/images/fb96278c0ae94c3293a301a3a710f3a9facd6c44/A251811_web_1920.jpg?1762964937',
+  'https://uploads.audi-mediacenter.com/system/production/media/129025/images/29647454524860952238230c6a055c5f0263850d/A251825_web_960.jpg?1762985369',
+  'https://uploads.audi-mediacenter.com/system/production/media/129005/images/c1050824c3c5d50f99a54c8ec3e9d7df1b6307ec/A251805_web_1920.jpg?1762965454',
+  'https://uploads.audi-mediacenter.com/system/production/media/129035/images/64d56511c00d41285dac3cc79acfe0134bcb42ff/A251835_web_960.jpg?1762987394',
+  'https://uploads.audi-mediacenter.com/system/production/media/129034/images/7963d560d9e1e2c33cdf1d3e71f6ce67d330f783/A251834_web_1920.jpg?1762987385',
+  'https://uploads.audi-mediacenter.com/system/production/media/129010/images/5f0413d1e582accfa8ae886d463dfbba466dfad5/A251810_web_1920.jpg?1762965256',
 ] as const;
 
 function clamp01(n: number) {
@@ -303,25 +312,33 @@ export function AudiBrandPage() {
         </div>
       )}
 
-      {/* Black screen — press gallery */}
+      {/* Black screen — press gallery: natural aspect (no CSS crop); inset left, flush right */}
       <section
-        className="relative z-10 bg-black px-4 pb-20 pt-6 sm:px-8 sm:pb-28 sm:pt-10"
+        className="relative z-10 bg-black pb-20 pl-4 pt-6 sm:pb-28 sm:pl-8 sm:pt-10 pr-[max(0px,env(safe-area-inset-right))]"
         aria-label="Audi Formula 1 gallery"
       >
-        <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 sm:gap-5">
+        <div className="grid w-full max-w-none gap-3 sm:grid-cols-2 sm:gap-4 md:gap-5">
           {AUDI_GALLERY_IMGS.map((src, i) => (
-            <img
+            <div
               key={src}
-              src={src}
-              alt=""
               className={cn(
-                'h-auto w-full rounded-sm object-cover ring-1 ring-white/[0.06]',
+                'relative w-full overflow-hidden ring-1 ring-white/[0.06]',
+                'max-sm:rounded-l-sm max-sm:rounded-r-none',
+                'sm:rounded-sm',
+                (i === 0 || (i > 0 && i % 2 === 0)) && 'sm:rounded-r-none',
                 i === 0 && 'sm:col-span-2'
               )}
-              loading="lazy"
-              decoding="async"
-              referrerPolicy="no-referrer"
-            />
+            >
+              <img
+                src={src}
+                alt=""
+                className="block h-auto w-full max-w-full object-contain object-center"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 1024px"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </div>
           ))}
         </div>
       </section>

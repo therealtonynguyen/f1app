@@ -14,10 +14,14 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
   const isCadillacBrandPage = location.pathname === '/cars/cadillac';
   const isAudiBrandPage = location.pathname === '/cars/audi';
   const isRacingBullsBrandPage = location.pathname === '/cars/racing-bulls';
+  const isHaasBrandPage = location.pathname === '/cars/haas';
+  const isWilliamsBrandPage = location.pathname === '/cars/williams';
+  const isMcLarenBrandPage = location.pathname === '/cars/mclaren';
+  const isRedBullBrandPage = location.pathname === '/cars/red-bull';
   const isAlpineBrandPage = location.pathname === '/cars/alpine';
-  /** White bar + dark link treatment (home + Alpine brand page). */
+  /** White bar + dark links — home only. Alpine uses pink bar + light links. */
   const isLightNav = location.pathname === '/';
-  const navLightChrome = isLightNav || isAlpineBrandPage;
+  const navLightChrome = isLightNav;
   const isAstonBrandPage = location.pathname === '/cars/aston-martin';
   const isFerrariBrandPage = location.pathname === '/cars/ferrari';
   const carsActive = location.pathname.startsWith('/cars');
@@ -31,13 +35,20 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
         'fixed left-0 right-0 top-0 z-[100] overflow-visible border-b transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
         navLightChrome
           ? 'border-neutral-200/90 bg-white'
-          : isAstonBrandPage
+          : isAlpineBrandPage
+            ? 'border-pink-700/35 bg-pink-500/95 backdrop-blur-xl backdrop-saturate-150'
+            : isAstonBrandPage
             ? 'border-emerald-700/35 bg-[#0f2a1d]'
             : isFerrariBrandPage
               ? 'border-red-950/45 bg-[#1a0608]/58 backdrop-blur-2xl backdrop-saturate-150'
               : isRacingBullsBrandPage
-                ? 'border-blue-950/35 bg-[#070b14]/95 backdrop-blur-xl backdrop-saturate-150'
-                : isCadillacBrandPage || isAudiBrandPage
+                ? 'border-blue-800/40 bg-blue-950/95 backdrop-blur-xl backdrop-saturate-150'
+                : isCadillacBrandPage ||
+                    isAudiBrandPage ||
+                    isHaasBrandPage ||
+                    isWilliamsBrandPage ||
+                    isMcLarenBrandPage ||
+                    isRedBullBrandPage
                   ? 'border-black bg-black'
                   : 'border-white/[0.07] bg-black/70 backdrop-blur-2xl',
         visible ? 'translate-y-0' : 'pointer-events-none -translate-y-full'
