@@ -9,6 +9,7 @@ import {
   localToLatLngBbox,
 } from '../lib/telemetryGeoAlign';
 import { metersPerUnitFromTrackOutline, speedKmhFromReplayTrail } from '../lib/locationSpeed';
+import { MapViewLeaflet } from './MapViewLeaflet';
 
 const MAPS_API_KEY = (import.meta.env.VITE_GOOGLE_MAPS_KEY as string | undefined) ?? '';
 
@@ -90,7 +91,7 @@ function buildInfoWindowHtml(opts: {
     </div>`;
 }
 
-export function MapView({
+function MapViewGoogle({
   meta,
   geo,
   isLoading,
@@ -151,7 +152,7 @@ export function MapView({
 
   // ── Init Google Maps ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!containerRef.current || !MAPS_API_KEY) return;
+    if (!containerRef.current) return;
     let cancelled = false;
 
     importLibrary('maps')
@@ -394,15 +395,6 @@ export function MapView({
     <div className="relative w-full h-full bg-[#0a0a14]">
       <div ref={containerRef} className="w-full h-full" />
 
-      {!MAPS_API_KEY && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="bg-black/80 rounded-xl px-5 py-3 text-center max-w-xs">
-            <p className="text-red-400 text-sm font-medium">Google Maps API key missing</p>
-            <p className="text-gray-500 text-xs mt-1">Add VITE_GOOGLE_MAPS_KEY to .env.local</p>
-          </div>
-        </div>
-      )}
-
       {isLoading && !geo && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="bg-black/70 rounded-xl px-5 py-3.5 flex items-center gap-4">
@@ -430,4 +422,12 @@ export function MapView({
       )}
     </div>
   );
+}
+
+/** Google Maps when `VITE_GOOGLE_MAPS_KEY` is set; otherwise Esri satellite via Leaflet (no key). */
+export function MapView(props: MapViewProps) {
+  if (!MAPS_API_KEY) {
+    return <MapViewLeaflet {...props} />;
+  }
+  return <MapViewGoogle {...props} />;
 }

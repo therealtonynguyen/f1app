@@ -5,6 +5,7 @@ import type { Meeting, Session } from '@/types/openf1';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { dataSeasonYearsDescending } from '@/lib/f1DataYears';
 
 interface SessionPickerProps {
   open: boolean;
@@ -14,7 +15,7 @@ interface SessionPickerProps {
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2].filter((y) => y >= 2023);
+const DATA_SEASON_YEARS = dataSeasonYearsDescending();
 
 type SessionStyle = { label: string; variant: 'default' | 'accent' | 'muted' | 'live' | 'ghost' };
 
@@ -130,26 +131,32 @@ export function SessionPicker({ open, onOpenChange, currentSessionKey, onSelect 
           </button>
         </div>
 
-        {/* Year selector */}
-        <div
-          className="flex gap-3 px-5 py-4 shrink-0"
-          style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
-        >
-          {YEARS.map((y) => (
-            <button
-              key={y}
-              type="button"
-              onClick={() => setYear(y)}
-              className="rounded-xl px-6 py-2.5 text-[13px] font-semibold transition-colors"
-              style={
-                year === y
-                  ? { background: '#e10600', color: '#fff' }
-                  : { background: 'var(--ios-fill)', color: 'var(--ios-label-secondary)' }
-              }
-            >
-              {y}
-            </button>
-          ))}
+        {/* Year selector — 2006 through current (horizontal scroll) */}
+        <div className="shrink-0" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+          <div
+            className="flex gap-2 overflow-x-auto px-5 py-3"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+            role="tablist"
+            aria-label="Season year"
+          >
+            {DATA_SEASON_YEARS.map((y) => (
+              <button
+                key={y}
+                type="button"
+                role="tab"
+                aria-selected={year === y}
+                onClick={() => setYear(y)}
+                className="shrink-0 rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors sm:px-5"
+                style={
+                  year === y
+                    ? { background: '#e10600', color: '#fff' }
+                    : { background: 'var(--ios-fill)', color: 'var(--ios-label-secondary)' }
+                }
+              >
+                {y}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Meeting list */}

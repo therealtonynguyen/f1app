@@ -14,6 +14,7 @@ import {
   metersPerUnitFromTrackOutline,
   speedKmhFromLocationSeries,
 } from '../lib/locationSpeed';
+import { isErgastSessionKey } from '../lib/ergastKeys';
 
 const POLL_MS = 4000;
 
@@ -156,36 +157,40 @@ export function useF1Data(_initialSessionKey?: number) {
       sessionRef.current = sessionData;
       setIsLive(isSessionLive(sessionData));
 
-      const driverData = await api.fetchDrivers(sessionData.session_key);
-      setDrivers(driverData);
+      const ergastOnly = isErgastSessionKey(sessionData.session_key);
 
-      if (driverData.length > 0) {
-        // Try up to 4 drivers in order; use the first that returns a full lap
-        const candidateDrivers = driverData.slice(0, 4).map((d) => d.driver_number);
-        (async () => {
-          for (const driverNumber of candidateDrivers) {
+      if (ergastOnly) {
+        setDrivers([]);
+        setIsLive(false);
+      } else {
+        const driverData = await api.fetchDrivers(sessionData.session_key);
+        setDrivers(driverData);
+
+        if (driverData.length > 0) {
+          const candidateDrivers = driverData.slice(0, 4).map((d) => d.driver_number);
+          (async () => {
+            for (const driverNumber of candidateDrivers) {
+              try {
+                const pts = await api.fetchCleanTrackLap(sessionData.session_key, driverNumber);
+                if (pts.length >= 50) {
+                  trackOutlineRef.current = pts;
+                  setTrackOutline(pts);
+                  return;
+                }
+              } catch { /* try next driver */ }
+            }
             try {
-              const pts = await api.fetchCleanTrackLap(sessionData.session_key, driverNumber);
-              if (pts.length >= 50) {
+              const pts = await api.fetchCleanTrackLap(sessionData.session_key, candidateDrivers[0]);
+              if (pts.length >= 10) {
                 trackOutlineRef.current = pts;
                 setTrackOutline(pts);
-                return;
               }
-            } catch { /* try next driver */ }
-          }
-          // Last resort: use whatever the first driver returned, even if sparse
-          try {
-            const pts = await api.fetchCleanTrackLap(sessionData.session_key, candidateDrivers[0]);
-            if (pts.length >= 10) {
-              trackOutlineRef.current = pts;
-              setTrackOutline(pts);
-            }
-          } catch { /* no track outline available */ }
-        })();
-      }
+            } catch { /* no track outline available */ }
+          })();
+        }
 
-      // Fetch live data (positions, intervals, current locations)
-      await updateLiveData(sessionData);
+        await updateLiveData(sessionData);
+      }
 
     } catch (err) {
       // Transient error during init (rate limit / network blip that survived all

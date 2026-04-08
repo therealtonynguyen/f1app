@@ -1,4 +1,5 @@
 export interface Session {
+  /** OpenF1 session id (positive). Negative keys = Ergast-only weekends (2006–2022); no OpenF1 telemetry. */
   session_key: number;
   session_name: string;
   session_type: string;

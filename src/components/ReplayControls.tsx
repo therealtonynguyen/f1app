@@ -2,6 +2,7 @@ import { SkipBack, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import { interpolateReplayPosition } from '@/lib/replayPosition';
 import type { DriverReplayData, ReplaySpeed } from '@/hooks/useLapReplay';
 
 interface Props {
@@ -149,29 +150,37 @@ export function ReplayControls({
         </div>
       </div>
 
-      {/* Best laps mini-table */}
+      {/* Race order at scrub time (official position) */}
       {hasData && (
         <div className="flex flex-wrap gap-2 pt-1">
-          {driverData
-            .sort((a, b) => (a.bestLap.lap_duration ?? 0) - (b.bestLap.lap_duration ?? 0))
-            .map(({ driver, bestLap }, i) => (
-              <div
-                key={driver.driver_number}
-                className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5"
-              >
-                <span className="text-[11px] w-4 text-center text-muted-foreground/50 tabular-nums">
-                  {i + 1}
-                </span>
-                <span
-                  className="h-2 w-2 rounded-full shrink-0"
-                  style={{ backgroundColor: `#${driver.team_colour}` }}
-                />
-                <span className="text-[12px] font-mono text-foreground">{driver.name_acronym}</span>
-                <span className="text-[12px] font-mono tabular-nums text-muted-foreground pl-1">
-                  {bestLap.lap_duration != null ? formatTime(bestLap.lap_duration) : '—'}
-                </span>
-              </div>
-            ))}
+          {[...driverData]
+            .sort((a, b) => {
+              const pa = interpolateReplayPosition(a.positionHistory, currentTime) ?? 999;
+              const pb = interpolateReplayPosition(b.positionHistory, currentTime) ?? 999;
+              if (pa !== pb) return pa - pb;
+              return a.driver.driver_number - b.driver.driver_number;
+            })
+            .map(({ driver, positionHistory }, i) => {
+              const pos = interpolateReplayPosition(positionHistory, currentTime);
+              return (
+                <div
+                  key={driver.driver_number}
+                  className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5"
+                >
+                  <span className="text-[11px] w-4 text-center text-muted-foreground/50 tabular-nums">
+                    {i + 1}
+                  </span>
+                  <span
+                    className="h-2 w-2 rounded-full shrink-0"
+                    style={{ backgroundColor: `#${driver.team_colour}` }}
+                  />
+                  <span className="text-[12px] font-mono text-foreground">{driver.name_acronym}</span>
+                  <span className="text-[12px] font-mono tabular-nums text-muted-foreground pl-1">
+                    {pos != null ? `P${pos}` : '—'}
+                  </span>
+                </div>
+              );
+            })}
         </div>
       )}
     </div>

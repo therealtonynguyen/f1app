@@ -16,12 +16,22 @@
  *     stale data on the map.
  *
  * See src/db/cache.ts for the get/set helpers and key naming convention.
+ *
+ * Historical seasons (2006–2022): meeting lists and weekend session times come from
+ * Jolpica Ergast (`src/api/ergast.ts`) with negative synthetic ids. OpenF1 has no
+ * telemetry for those years — see `isErgastSessionKey` / `ergastKeys.ts`.
  */
 
 import type { Session, Meeting, Driver, Location, Position, Interval, Lap, CarData } from '../types/openf1';
 import { RateLimiter } from '../lib/rateLimiter';
 import { API_CONFIG } from '../config/api';
 import { getCached, setCached, meetingsTTL } from '../db/cache';
+import { isErgastSessionKey } from '../lib/ergastKeys';
+import {
+  fetchErgastMeetings,
+  fetchErgastSessionsForMeeting,
+  fetchErgastSessionByKey,
+} from './ergast';
 
 function openF1Base(): string {
   const env = import.meta.env.VITE_OPENF1_BASE?.trim();
@@ -121,6 +131,7 @@ export async function fetchLatestLocations(
   sessionKey: number,
   session: Session
 ): Promise<Location[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
   const now = new Date();
   const sessionEnd = session.date_end ? new Date(session.date_end) : null;
   if (!sessionEnd || now <= new Date(sessionEnd.getTime() + 30 * 60 * 1000)) {
@@ -132,6 +143,7 @@ export async function fetchLatestLocations(
 
 /** Live race positions (polling). */
 export async function fetchPositions(sessionKey: number, session: Session): Promise<Position[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
   const now = new Date();
   const sessionEnd = session.date_end ? new Date(session.date_end) : null;
   if (!sessionEnd || now <= new Date(sessionEnd.getTime() + 30 * 60 * 1000)) {
@@ -143,6 +155,7 @@ export async function fetchPositions(sessionKey: number, session: Session): Prom
 
 /** Live intervals / gaps (polling). */
 export async function fetchIntervals(sessionKey: number, session: Session): Promise<Interval[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
   const now = new Date();
   const sessionEnd = session.date_end ? new Date(session.date_end) : null;
   if (!sessionEnd || now <= new Date(sessionEnd.getTime() + 30 * 60 * 1000)) {
@@ -158,6 +171,7 @@ export async function fetchCarData(
   driverNumber: number,
   session: Session
 ): Promise<CarData[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
   const now = new Date();
   const sessionEnd = session.date_end ? new Date(session.date_end) : null;
   if (!sessionEnd || now <= new Date(sessionEnd.getTime() + 30 * 60 * 1000)) {
@@ -175,6 +189,10 @@ export async function fetchCarData(
 
 /** A single session by key — cached forever (sessions don't change). */
 export async function fetchSessionByKey(sessionKey: number): Promise<Session | null> {
+  if (isErgastSessionKey(sessionKey)) {
+    return fetchErgastSessionByKey(sessionKey);
+  }
+
   const key = `session:${sessionKey}`;
   const cached = await getCached<Session>(key);
   if (cached) return cached;
@@ -199,14 +217,32 @@ export async function fetchMeetings(year: number): Promise<Meeting[]> {
   }
 
   console.log(`[cache] meetings:${year} — miss, fetching…`);
-  const data = await apiFetch<Meeting>(`/meetings?year=${year}`);
-  const sorted = data.sort((a, b) => a.date_start.localeCompare(b.date_start));
+
+  if (year >= 2023) {
+    try {
+      const data = await apiFetch<Meeting>(`/meetings?year=${year}`);
+      if (data.length > 0) {
+        const sorted = data.sort((a, b) => a.date_start.localeCompare(b.date_start));
+        await setCached(key, sorted);
+        return sorted;
+      }
+    } catch (e) {
+      console.warn(`[OpenF1] meetings?year=${year} failed, trying Ergast…`, e);
+    }
+  }
+
+  const ergast = await fetchErgastMeetings(year);
+  const sorted = ergast.sort((a, b) => a.date_start.localeCompare(b.date_start));
   await setCached(key, sorted);
   return sorted;
 }
 
 /** All sessions within one meeting — cached forever. */
 export async function fetchSessionsForMeeting(meetingKey: number): Promise<Session[]> {
+  if (meetingKey < 0) {
+    return fetchErgastSessionsForMeeting(meetingKey);
+  }
+
   const key = `sessions:${meetingKey}`;
   const cached = await getCached<Session[]>(key);
   if (cached) {
@@ -223,6 +259,8 @@ export async function fetchSessionsForMeeting(meetingKey: number): Promise<Sessi
 
 /** All drivers in a session — cached forever (roster doesn't change post-session). */
 export async function fetchDrivers(sessionKey: number): Promise<Driver[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
+
   const key = `drivers:${sessionKey}`;
   const cached = await getCached<Driver[]>(key);
   if (cached) {
@@ -242,6 +280,8 @@ export async function fetchDrivers(sessionKey: number): Promise<Driver[]> {
  * After the first load it's instant.
  */
 export async function fetchAllLaps(sessionKey: number): Promise<Lap[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
+
   const key = `allLaps:${sessionKey}`;
   const cached = await getCached<Lap[]>(key);
   if (cached) {
@@ -257,6 +297,8 @@ export async function fetchAllLaps(sessionKey: number): Promise<Lap[]> {
 
 /** One driver's laps — cached forever. */
 export async function fetchLaps(sessionKey: number, driverNumber: number): Promise<Lap[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
+
   const key = `laps:${sessionKey}:${driverNumber}`;
   const cached = await getCached<Lap[]>(key);
   if (cached) return cached;
@@ -275,6 +317,8 @@ export async function fetchCleanTrackLap(
   sessionKey: number,
   driverNumber: number
 ): Promise<Location[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
+
   const key = `trackOutline:${sessionKey}:${driverNumber}`;
   const cached = await getCached<Location[]>(key);
   if (cached) {
@@ -318,7 +362,7 @@ export async function fetchCleanTrackLap(
 
 /**
  * Telemetry for a specific time window — used by replay mode to animate
- * each driver's best lap. Cached forever (the lap already happened).
+ * on-track movement over a session slice. Cached forever (the lap already happened).
  */
 export async function fetchLocationRange(
   sessionKey: number,
@@ -326,6 +370,8 @@ export async function fetchLocationRange(
   dateStart: string,
   dateEnd: string
 ): Promise<Location[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
+
   const key = `locationRange:${sessionKey}:${driverNumber}:${dateStart}`;
   const cached = await getCached<Location[]>(key);
   if (cached) {
@@ -341,7 +387,29 @@ export async function fetchLocationRange(
 }
 
 /**
- * Car telemetry for a replay lap window — cached forever.
+ * Race position updates for a time window — used for full-session replay.
+ * Cached forever once the session is complete.
+ */
+export async function fetchPositionRange(
+  sessionKey: number,
+  dateStart: string,
+  dateEnd: string
+): Promise<Position[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
+
+  const key = `positionRange:${sessionKey}:${dateStart}:${dateEnd}`;
+  const cached = await getCached<Position[]>(key);
+  if (cached) return cached;
+
+  const data = await apiFetch<Position>(
+    `/position?session_key=${sessionKey}&date>${dateStart}&date<${dateEnd}`
+  );
+  if (data.length > 0) await setCached(key, data);
+  return data;
+}
+
+/**
+ * Car telemetry for a replay time window — cached forever.
  * (speed, throttle, brake, DRS, gear, RPM for each timestamp)
  */
 export async function fetchCarDataRange(
@@ -350,6 +418,8 @@ export async function fetchCarDataRange(
   dateStart: string,
   dateEnd: string
 ): Promise<CarData[]> {
+  if (isErgastSessionKey(sessionKey)) return [];
+
   const key = `carDataRange:${sessionKey}:${driverNumber}:${dateStart}`;
   const cached = await getCached<CarData[]>(key);
   if (cached) return cached;

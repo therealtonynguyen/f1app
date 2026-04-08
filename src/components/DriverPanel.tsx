@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { DriverWithData, Lap, CarData, Location } from '../types/openf1';
 import type { DriverReplayData, ReplayPoint } from '../hooks/useLapReplay';
+import { interpolateReplayPosition } from '../lib/replayPosition';
 import { ToggleAllTrackVisibility, TrackVisibilitySwitch } from './TrackVisibilitySwitch';
 import { metersPerUnitFromTrackOutline, speedKmhFromReplayTrail } from '../lib/locationSpeed';
 
@@ -78,27 +79,33 @@ function TelemetryBar({
   );
 }
 
-// Fraction of lap completed at time t (0–1). Drivers with no data go last.
-function lapProgress(lapDuration: number | null | undefined, t: number): number {
-  if (!lapDuration || lapDuration <= 0) return -1;
-  return Math.min(t, lapDuration) / lapDuration;
+function replayPositionAt(
+  replayByDriver: Map<number, DriverReplayData>,
+  driverNumber: number,
+  t: number
+): number | null {
+  const rd = replayByDriver.get(driverNumber);
+  if (!rd) return null;
+  return interpolateReplayPosition(rd.positionHistory, t);
 }
 
 function replayGapToLeaderLabel(
   selected: DriverWithData,
   sortedDrivers: DriverWithData[],
   replayByDriver: Map<number, DriverReplayData>,
-  replayCurrentTime: number,
-  leaderProgress: number
+  replayCurrentTime: number
 ): string {
   const rd = replayByDriver.get(selected.driver_number);
   if (!rd) return '—';
-  const idx = sortedDrivers.findIndex((d) => d.driver_number === selected.driver_number);
-  if (idx === 0) return 'Leader';
-  const progress = lapProgress(rd.bestLap.lap_duration, replayCurrentTime);
-  const gapFrac = leaderProgress - progress;
-  const gapSec = gapFrac * (rd.bestLap.lap_duration ?? 0);
-  return `+${gapSec.toFixed(3)} s`;
+  const leader = sortedDrivers[0];
+  if (leader && selected.driver_number === leader.driver_number) return 'Leader';
+  const pos = replayPositionAt(replayByDriver, selected.driver_number, replayCurrentTime);
+  if (!leader || pos == null) return '—';
+  const leaderPos = replayPositionAt(replayByDriver, leader.driver_number, replayCurrentTime);
+  if (leaderPos == null) return '—';
+  const behind = pos - leaderPos;
+  if (behind <= 0) return 'Leader';
+  return `+${behind} pos`;
 }
 
 function replayIntervalLabel(
@@ -110,14 +117,12 @@ function replayIntervalLabel(
   const idx = sortedDrivers.findIndex((d) => d.driver_number === selected.driver_number);
   if (idx <= 0) return '—';
   const ahead = sortedDrivers[idx - 1]!;
-  const rdSel = replayByDriver.get(selected.driver_number);
-  if (!rdSel) return '—';
-  const rdAhead = replayByDriver.get(ahead.driver_number);
-  const pa = lapProgress(rdAhead?.bestLap.lap_duration, replayCurrentTime);
-  const pb = lapProgress(rdSel.bestLap.lap_duration, replayCurrentTime);
-  const gapFrac = pa - pb;
-  const gapSec = gapFrac * (rdSel.bestLap.lap_duration ?? 0);
-  return `+${gapSec.toFixed(3)} s`;
+  const posSel = replayPositionAt(replayByDriver, selected.driver_number, replayCurrentTime);
+  const posAhead = replayPositionAt(replayByDriver, ahead.driver_number, replayCurrentTime);
+  if (posSel == null || posAhead == null) return '—';
+  const gap = posSel - posAhead;
+  if (gap <= 0) return '—';
+  return `+${gap} pos`;
 }
 
 export function DriverPanel({
@@ -142,29 +147,17 @@ export function DriverPanel({
     [replayDriverData]
   );
 
-  // In replay mode, sort live by who has completed the most of their best lap
+  // In replay mode, sort by official race position at the scrubber time
   const sortedDrivers = useMemo(() => {
     if (!replayMode) return drivers;
     return [...drivers].sort((a, b) => {
-      const pa = lapProgress(
-        replayByDriver.get(a.driver_number)?.bestLap.lap_duration,
-        replayCurrentTime
-      );
-      const pb = lapProgress(
-        replayByDriver.get(b.driver_number)?.bestLap.lap_duration,
-        replayCurrentTime
-      );
-      return pb - pa; // descending — most progress first
+      const pa = replayPositionAt(replayByDriver, a.driver_number, replayCurrentTime) ?? 999;
+      const pb = replayPositionAt(replayByDriver, b.driver_number, replayCurrentTime) ?? 999;
+      if (pa !== pb) return pa - pb;
+      return a.driver_number - b.driver_number;
     });
   }, [replayMode, drivers, replayByDriver, replayCurrentTime]);
 
-  // Pre-compute leader progress for gap calculation
-  const leaderProgress = replayMode && sortedDrivers.length > 0
-    ? lapProgress(
-        replayByDriver.get(sortedDrivers[0].driver_number)?.bestLap.lap_duration,
-        replayCurrentTime
-      )
-    : 0;
   const selected = drivers.find((d) => d.driver_number === selectedDriverNumber);
 
   const effectiveCarData = replayMode && replayCarData ? replayCarData : selectedDriverCarData;
@@ -190,7 +183,7 @@ export function DriverPanel({
   const gapLabel = !selected
     ? '—'
     : replayMode
-      ? replayGapToLeaderLabel(selected, sortedDrivers, replayByDriver, replayCurrentTime, leaderProgress)
+      ? replayGapToLeaderLabel(selected, sortedDrivers, replayByDriver, replayCurrentTime)
       : formatGap(selected.gap_to_leader);
 
   const intervalLabel = !selected
@@ -259,7 +252,10 @@ export function DriverPanel({
                   style={{ color: 'var(--ios-label-tertiary)' }}
                 >
                   {replayMode
-                    ? sortedDrivers.indexOf(d) + 1
+                    ? (() => {
+                        const p = replayPositionAt(replayByDriver, d.driver_number, replayCurrentTime);
+                        return p != null ? `P${p}` : '—';
+                      })()
                     : (d.position ?? '—')}
                 </div>
 
@@ -296,22 +292,33 @@ export function DriverPanel({
                 {/* Gap to leader (replay) or race gap (live) */}
                 <div className="shrink-0 text-[11px] font-mono pl-1">
                   {replayMode ? (() => {
-                    const rd = replayByDriver.get(d.driver_number);
-                    if (!rd) return <span style={{ color: 'var(--ios-label-tertiary)' }}>—</span>;
-                    const progress = lapProgress(rd.bestLap.lap_duration, replayCurrentTime);
                     const rank = sortedDrivers.indexOf(d);
-                    if (rank === 0)
+                    if (rank === 0) {
                       return (
                         <span className="font-semibold" style={{ color: 'var(--ios-orange)' }}>
                           Leader
                         </span>
                       );
-                    // Gap = how far behind the leader in fractional seconds
-                    const gapFrac = leaderProgress - progress;
-                    const gapSec = gapFrac * (rd.bestLap.lap_duration ?? 0);
+                    }
+                    const pos = replayPositionAt(replayByDriver, d.driver_number, replayCurrentTime);
+                    const leader = sortedDrivers[0];
+                    const leaderPos = leader
+                      ? replayPositionAt(replayByDriver, leader.driver_number, replayCurrentTime)
+                      : null;
+                    if (pos == null || leaderPos == null) {
+                      return <span style={{ color: 'var(--ios-label-tertiary)' }}>—</span>;
+                    }
+                    const behind = pos - leaderPos;
+                    if (behind <= 0) {
+                      return (
+                        <span className="font-semibold" style={{ color: 'var(--ios-orange)' }}>
+                          Leader
+                        </span>
+                      );
+                    }
                     return (
                       <span style={{ color: 'var(--ios-label-secondary)' }}>
-                        +{gapSec.toFixed(3)}s
+                        +{behind} pos
                       </span>
                     );
                   })() : (

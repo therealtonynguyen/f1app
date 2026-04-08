@@ -3,15 +3,23 @@ import * as api from '../api/openf1';
 import type { DriverWithData, Lap } from '../types/openf1';
 
 export interface ReplayPoint {
-  t: number; // seconds from lap start
+  /** Seconds since session replay origin (`replayT0`). */
+  t: number;
   x: number;
   y: number;
 }
 
 export interface DriverReplayData {
   driver: DriverWithData;
-  bestLap: Lap;
+  /** First timed lap included in this replay window. */
+  firstLap: Lap;
+  /** Last timed lap included in this replay window. */
+  lastLap: Lap;
+  /** ISO instant for scrubber `t = 0` (earliest first-lap start among loaded drivers). */
+  replayT0: string;
   points: ReplayPoint[];
+  /** Official classification position vs replay time (`t` seconds since `replayT0`). */
+  positionHistory: { t: number; position: number }[];
 }
 
 export type ReplaySpeed = 0.25 | 0.5 | 1 | 2 | 4 | 8;
@@ -52,6 +60,12 @@ export interface LapReplayState {
   replayTelemetryBounds: ReplayTelemetryBounds | null;
 }
 
+function timedLapsForDriver(laps: Lap[], driverNumber: number): Lap[] {
+  return laps
+    .filter((l) => l.driver_number === driverNumber && l.lap_duration != null)
+    .sort((a, b) => a.lap_number - b.lap_number);
+}
+
 // Linear interpolation between two replay points at time t
 function interpolate(points: ReplayPoint[], t: number): { x: number; y: number } | null {
   if (points.length === 0) return null;
@@ -59,7 +73,6 @@ function interpolate(points: ReplayPoint[], t: number): { x: number; y: number }
   const last = points[points.length - 1];
   if (t >= last.t) return { x: last.x, y: last.y };
 
-  // Binary search
   let lo = 0;
   let hi = points.length - 1;
   while (lo < hi - 1) {
@@ -84,10 +97,10 @@ function trailPoints(points: ReplayPoint[], t: number): ReplayPoint[] {
   return startIdx === -1 ? slice : slice.slice(startIdx);
 }
 
-// Fetch location data for up to `batchSize` drivers at a time to stay under rate limits
 async function batchFetchLocations(
   sessionKey: number,
   drivers: Array<{ driverNumber: number; dateStart: string; dateEnd: string }>,
+  replayT0Ms: number,
   onBatchDone: (loaded: number, total: number) => void
 ): Promise<Map<number, ReplayPoint[]>> {
   const BATCH_SIZE = 3;
@@ -106,11 +119,10 @@ async function batchFetchLocations(
     );
     for (const { driverNumber, locs } of fetched) {
       const sorted = [...locs].sort((a, b) => (a.date < b.date ? -1 : 1));
-      const t0 = sorted.length > 0 ? new Date(sorted[0].date).getTime() : 0;
       result.set(
         driverNumber,
         sorted.map((p) => ({
-          t: (new Date(p.date).getTime() - t0) / 1000,
+          t: (new Date(p.date).getTime() - replayT0Ms) / 1000,
           x: p.x,
           y: p.y,
         }))
@@ -122,6 +134,24 @@ async function batchFetchLocations(
     }
   }
   return result;
+}
+
+function buildPositionHistories(
+  rows: import('../types/openf1').Position[],
+  replayT0Ms: number
+): Map<number, { t: number; position: number }[]> {
+  const byDriver = new Map<number, { t: number; position: number }[]>();
+  for (const row of rows) {
+    const t = (new Date(row.date).getTime() - replayT0Ms) / 1000;
+    if (!isFinite(t)) continue;
+    const list = byDriver.get(row.driver_number) ?? [];
+    list.push({ t, position: row.position });
+    byDriver.set(row.driver_number, list);
+  }
+  for (const list of byDriver.values()) {
+    list.sort((a, b) => a.t - b.t);
+  }
+  return byDriver;
 }
 
 export function useLapReplay(
@@ -138,11 +168,21 @@ export function useLapReplay(
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState<ReplaySpeed>(1);
 
-  const maxDuration = driverData.length > 0
-    ? Math.max(...driverData.map((d) => d.bestLap.lap_duration ?? 0))
-    : 0;
+  const maxDuration = useMemo(() => {
+    if (driverData.length === 0) return 0;
+    const t0ms = new Date(driverData[0]!.replayT0).getTime();
+    let maxT = 0;
+    for (const d of driverData) {
+      const endMs =
+        new Date(d.lastLap.date_start).getTime() + (d.lastLap.lap_duration! + 3) * 1000;
+      maxT = Math.max(maxT, (endMs - t0ms) / 1000);
+      const lp = d.points[d.points.length - 1]?.t ?? 0;
+      const pp = d.positionHistory[d.positionHistory.length - 1]?.t ?? 0;
+      maxT = Math.max(maxT, lp, pp);
+    }
+    return maxT;
+  }, [driverData]);
 
-  // Refs for rAF loop — avoids stale closures
   const isPlayingRef = useRef(false);
   const speedRef = useRef<ReplaySpeed>(1);
   const currentTimeRef = useRef(0);
@@ -150,12 +190,10 @@ export function useLapReplay(
   const rafRef = useRef<number | null>(null);
   const lastTsRef = useRef<number | null>(null);
 
-  // Keep refs in sync
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { maxDurationRef.current = maxDuration; }, [maxDuration]);
 
-  // rAF animation loop
   const animate = useCallback((ts: number) => {
     if (!isPlayingRef.current) return;
     if (lastTsRef.current !== null) {
@@ -207,7 +245,6 @@ export function useLapReplay(
     []
   );
 
-  // Reset everything when the session changes so stale data never appears on a new circuit
   useEffect(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     isPlayingRef.current = false;
@@ -221,14 +258,12 @@ export function useLapReplay(
     setLoadingLabel('');
   }, [sessionKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
-  // Load all best-lap data
   const load = useCallback(async () => {
     if (!sessionKey || drivers.length === 0) return;
     setIsLoading(true);
@@ -238,32 +273,55 @@ export function useLapReplay(
     reset();
 
     try {
-      setLoadingLabel('Fetching all lap times…');
+      setLoadingLabel('Fetching lap times…');
       const allLaps = await api.fetchAllLaps(sessionKey);
 
-      // Find each driver's best lap (fastest, non-pit-out, with duration)
-      const bestLapByDriver = new Map<number, Lap>();
-      for (const lap of allLaps) {
-        if (lap.lap_duration == null || lap.is_pit_out_lap) continue;
-        const existing = bestLapByDriver.get(lap.driver_number);
-        if (!existing || lap.lap_duration < existing.lap_duration!) {
-          bestLapByDriver.set(lap.driver_number, lap);
-        }
+      const firstLapByDriver = new Map<number, Lap>();
+      const lastLapByDriver = new Map<number, Lap>();
+
+      for (const d of drivers) {
+        const timed = timedLapsForDriver(allLaps, d.driver_number);
+        if (timed.length === 0) continue;
+        firstLapByDriver.set(d.driver_number, timed[0]!);
+        lastLapByDriver.set(d.driver_number, timed[timed.length - 1]!);
       }
 
-      const eligibleDrivers = drivers.filter((d) => bestLapByDriver.has(d.driver_number));
+      const eligibleDrivers = drivers.filter((d) => firstLapByDriver.has(d.driver_number));
       if (eligibleDrivers.length === 0) {
         setError('No lap time data found for this session.');
         return;
       }
 
-      setLoadingLabel(`Loading GPS data for ${eligibleDrivers.length} drivers…`);
+      let replayT0Ms = Infinity;
+      let globalEndMs = 0;
+      for (const d of eligibleDrivers) {
+        const first = firstLapByDriver.get(d.driver_number)!;
+        const last = lastLapByDriver.get(d.driver_number)!;
+        const startMs = new Date(first.date_start).getTime();
+        const endMs = new Date(last.date_start).getTime() + (last.lap_duration! + 3) * 1000;
+        if (startMs < replayT0Ms) replayT0Ms = startMs;
+        if (endMs > globalEndMs) globalEndMs = endMs;
+      }
+      const replayT0 = new Date(replayT0Ms).toISOString();
+      const globalDateEnd = new Date(globalEndMs).toISOString();
 
+      setLoadingLabel('Fetching race positions…');
+      setProgress(0.05);
+      let positionRows: import('../types/openf1').Position[] = [];
+      try {
+        positionRows = await api.fetchPositionRange(sessionKey, replayT0, globalDateEnd);
+      } catch {
+        positionRows = [];
+      }
+      const positionByDriver = buildPositionHistories(positionRows, replayT0Ms);
+
+      setLoadingLabel(`Loading GPS for ${eligibleDrivers.length} drivers…`);
       const locationRequests = eligibleDrivers.map((d) => {
-        const lap = bestLapByDriver.get(d.driver_number)!;
-        const dateStart = lap.date_start;
+        const first = firstLapByDriver.get(d.driver_number)!;
+        const last = lastLapByDriver.get(d.driver_number)!;
+        const dateStart = first.date_start;
         const dateEnd = new Date(
-          new Date(lap.date_start).getTime() + (lap.lap_duration! + 2) * 1000
+          new Date(last.date_start).getTime() + (last.lap_duration! + 3) * 1000
         ).toISOString();
         return { driverNumber: d.driver_number, dateStart, dateEnd };
       });
@@ -271,17 +329,21 @@ export function useLapReplay(
       const locationMap = await batchFetchLocations(
         sessionKey,
         locationRequests,
+        replayT0Ms,
         (loaded, total) => {
-          setProgress(loaded / total);
-          setLoadingLabel(`Loading GPS data… ${loaded}/${total} drivers`);
+          setProgress(0.05 + (loaded / total) * 0.95);
+          setLoadingLabel(`Loading GPS… ${loaded}/${total} drivers`);
         }
       );
 
       const result: DriverReplayData[] = eligibleDrivers
         .map((driver) => ({
           driver,
-          bestLap: bestLapByDriver.get(driver.driver_number)!,
+          firstLap: firstLapByDriver.get(driver.driver_number)!,
+          lastLap: lastLapByDriver.get(driver.driver_number)!,
+          replayT0,
           points: locationMap.get(driver.driver_number) ?? [],
+          positionHistory: positionByDriver.get(driver.driver_number) ?? [],
         }))
         .filter((d) => d.points.length > 1);
 
@@ -311,7 +373,6 @@ export function useLapReplay(
     return { minX, maxX, minY, maxY };
   }, [driverData]);
 
-  // Derived: current positions and trails from currentTime
   const positions = new Map<number, { x: number; y: number }>();
   const trails = new Map<number, ReplayPoint[]>();
   for (const { driver, points } of driverData) {

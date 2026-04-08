@@ -1,7 +1,9 @@
 /**
- * RaceResultsPanel — shown when viewing a completed race session.
- * Displays a podium for P1/P2/P3 with driver photos, then a full results list.
+ * RaceResultsPanel — classification for a session.
+ * With `isLive`, order updates as OpenF1 poll refreshes positions; rows briefly
+ * highlight when a driver moves up or down the order.
  */
+import { useLayoutEffect, useRef } from 'react';
 import type { DriverWithData } from '../types/openf1';
 
 interface Props {
@@ -9,6 +11,8 @@ interface Props {
   session_name: string;
   onSelectDriver: (n: number | null) => void;
   selectedDriverNumber: number | null;
+  /** True while the session is in progress — enables reorder animations and live UI. */
+  isLive?: boolean;
 }
 
 const MEDAL = ['🥇', '🥈', '🥉'];
@@ -40,7 +44,6 @@ function PodiumBlock({
       className="flex flex-col items-center gap-2 transition-transform active:scale-95 focus:outline-none"
       style={{ width: place === 1 ? 96 : 80 }}
     >
-      {/* Headshot */}
       <div
         className="relative rounded-full overflow-hidden shrink-0"
         style={{
@@ -70,7 +73,6 @@ function PodiumBlock({
         )}
       </div>
 
-      {/* Name + medal */}
       <div className="text-center">
         <div className="text-[11px]" style={{ lineHeight: 1 }}>{MEDAL[place - 1]}</div>
         <div
@@ -84,7 +86,6 @@ function PodiumBlock({
         </div>
       </div>
 
-      {/* Podium block */}
       <div
         className="w-full rounded-t-lg flex items-center justify-center"
         style={{
@@ -105,44 +106,71 @@ function PodiumBlock({
   );
 }
 
-export function RaceResultsPanel({ drivers, session_name, onSelectDriver, selectedDriverNumber }: Props) {
+export function RaceResultsPanel({
+  drivers,
+  session_name,
+  onSelectDriver,
+  selectedDriverNumber,
+  isLive = false,
+}: Props) {
   const sorted = [...drivers]
     .filter((d) => d.position != null)
     .sort((a, b) => (a.position ?? 99) - (b.position ?? 99));
 
+  const rankIndexByDriverRef = useRef<Map<number, number>>(new Map());
+
+  useLayoutEffect(() => {
+    rankIndexByDriverRef.current = new Map(sorted.map((d, i) => [d.driver_number, i]));
+  }, [sorted]);
+
   const p1 = sorted[0];
   const p2 = sorted[1];
   const p3 = sorted[2];
-  const rest = sorted.slice(3);
+  const showPodium = Boolean(p1 && p2 && p3);
 
   return (
     <div
       className="flex flex-col h-full border-l overflow-hidden"
       style={{ background: 'var(--ios-grouped)', borderColor: 'var(--ios-separator)' }}
     >
-      {/* Header */}
       <div
         className="px-4 py-3 shrink-0 border-b"
         style={{ borderColor: 'var(--ios-separator)' }}
       >
-        <p
-          className="text-[11px] font-semibold uppercase tracking-widest"
-          style={{ color: 'var(--ios-label-tertiary)' }}
-        >
-          {session_name} · Results
-        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p
+            className="text-[11px] font-semibold uppercase tracking-widest"
+            style={{ color: 'var(--ios-label-tertiary)' }}
+          >
+            {session_name} · {isLive ? 'Live leaderboard' : 'Results'}
+          </p>
+          {isLive && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+              style={{
+                background: 'rgba(34, 197, 94, 0.2)',
+                color: 'rgb(134, 239, 172)',
+              }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+              Live
+            </span>
+          )}
+        </div>
+        {isLive && (
+          <p className="text-[10px] mt-1.5" style={{ color: 'var(--ios-label-tertiary)' }}>
+            Order updates with timing data — green / amber flash when a driver moves up or down.
+          </p>
+        )}
       </div>
 
-      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Podium */}
-        {p1 && p2 && p3 ? (
+        {showPodium ? (
           <div
             className="px-4 pt-5 pb-0 border-b shrink-0"
             style={{ borderColor: 'var(--ios-separator)' }}
           >
             <div className="flex items-end justify-center gap-2">
-              {/* P2 — left */}
               <PodiumBlock
                 driver={p2}
                 place={2}
@@ -150,7 +178,6 @@ export function RaceResultsPanel({ drivers, session_name, onSelectDriver, select
                 isSelected={p2.driver_number === selectedDriverNumber}
                 onClick={() => onSelectDriver(p2.driver_number === selectedDriverNumber ? null : p2.driver_number)}
               />
-              {/* P1 — centre */}
               <PodiumBlock
                 driver={p1}
                 place={1}
@@ -158,7 +185,6 @@ export function RaceResultsPanel({ drivers, session_name, onSelectDriver, select
                 isSelected={p1.driver_number === selectedDriverNumber}
                 onClick={() => onSelectDriver(p1.driver_number === selectedDriverNumber ? null : p1.driver_number)}
               />
-              {/* P3 — right */}
               <PodiumBlock
                 driver={p3}
                 place={3}
@@ -168,17 +194,16 @@ export function RaceResultsPanel({ drivers, session_name, onSelectDriver, select
               />
             </div>
           </div>
-        ) : (
+        ) : sorted.length === 0 ? (
           <div className="p-6 text-center text-[13px]" style={{ color: 'var(--ios-label-tertiary)' }}>
-            Results not yet available
+            {isLive ? 'Waiting for position data…' : 'Results not yet available'}
           </div>
-        )}
+        ) : null}
 
-        {/* Full results list */}
         {sorted.length > 0 && (
           <div>
             <p
-              className="px-4 pt-4 pb-2 text-[10px] font-bold uppercase tracking-widest sticky top-0"
+              className="px-4 pt-4 pb-2 text-[10px] font-bold uppercase tracking-widest sticky top-0 z-[1]"
               style={{
                 color: 'var(--ios-label-tertiary)',
                 background: 'var(--ios-grouped)',
@@ -190,18 +215,30 @@ export function RaceResultsPanel({ drivers, session_name, onSelectDriver, select
               const color = teamColor(d.team_colour);
               const isSelected = d.driver_number === selectedDriverNumber;
               const isPodium = idx < 3;
+
+              const prevIdx = rankIndexByDriverRef.current.get(d.driver_number);
+              let moveFlash: 'up' | 'down' | null = null;
+              if (isLive && prevIdx !== undefined && prevIdx !== idx) {
+                moveFlash = prevIdx > idx ? 'up' : 'down';
+              }
+
               return (
                 <button
                   key={d.driver_number}
                   type="button"
                   onClick={() => onSelectDriver(isSelected ? null : d.driver_number)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                    moveFlash === 'up'
+                      ? 'leaderboard-row-flash-up'
+                      : moveFlash === 'down'
+                        ? 'leaderboard-row-flash-down'
+                        : ''
+                  }`}
                   style={{
                     borderBottom: '0.5px solid var(--ios-separator)',
                     background: isSelected ? 'rgba(120,120,128,0.18)' : 'transparent',
                   }}
                 >
-                  {/* Position */}
                   <div
                     className="w-6 shrink-0 text-center text-[13px] font-bold"
                     style={{ color: isPodium ? color : 'var(--ios-label-tertiary)' }}
@@ -209,10 +246,8 @@ export function RaceResultsPanel({ drivers, session_name, onSelectDriver, select
                     {isPodium ? MEDAL[idx] : d.position}
                   </div>
 
-                  {/* Team color bar */}
                   <div className="w-0.5 h-7 rounded-full shrink-0" style={{ background: color }} />
 
-                  {/* Headshot */}
                   {d.headshot_url ? (
                     <img
                       src={d.headshot_url}
@@ -230,7 +265,6 @@ export function RaceResultsPanel({ drivers, session_name, onSelectDriver, select
                     </div>
                   )}
 
-                  {/* Name */}
                   <div className="flex-1 min-w-0">
                     <div
                       className="text-[13px] font-semibold truncate"
@@ -243,12 +277,15 @@ export function RaceResultsPanel({ drivers, session_name, onSelectDriver, select
                     </div>
                   </div>
 
-                  {/* Gap */}
                   <div
-                    className="text-[11px] font-mono shrink-0 text-right"
+                    className="text-[11px] font-mono shrink-0 text-right min-w-[4.5rem]"
                     style={{ color: idx === 0 ? 'var(--ios-orange)' : 'var(--ios-label-secondary)' }}
                   >
-                    {idx === 0 ? 'Winner' : (d.gap_to_leader != null ? `+${d.gap_to_leader}` : '—')}
+                    {idx === 0 ? (
+                      isLive ? 'Leader' : 'Winner'
+                    ) : (
+                      d.gap_to_leader != null ? `+${d.gap_to_leader}` : '—'
+                    )}
                   </div>
                 </button>
               );

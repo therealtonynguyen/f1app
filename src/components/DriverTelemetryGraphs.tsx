@@ -7,6 +7,7 @@ import {
   TELEMETRY_CHART_PX_HEIGHT,
   TELEMETRY_CHART_VB,
 } from '../lib/telemetrySeriesPath';
+import { interpolateReplayPosition } from '../lib/replayPosition';
 
 type Props = {
   driverData: DriverReplayData[];
@@ -137,11 +138,11 @@ function DriverTelemetryCard({
   onToggleExpand: () => void;
   renderExpandedTrackMap: (driverNumber: number) => ReactNode;
 }) {
-  const { driver, bestLap } = entry;
+  const { driver, replayT0 } = entry;
   const teamHex = driver.team_colour || 'ffffff';
   const teamColor = `#${teamHex}`;
   const samples = series?.samples ?? [];
-  const lapStart = series?.lapDateStart ?? bestLap.date_start;
+  const lapStart = series?.lapDateStart ?? replayT0;
   const articleRef = useRef<HTMLElement>(null);
 
   const throttlePath = useMemo(
@@ -223,7 +224,7 @@ function DriverTelemetryCard({
           </p>
         ) : samples.length === 0 ? (
           <p className="text-[12px] py-2" style={{ color: 'var(--ios-label-tertiary)' }}>
-            No car telemetry for this lap.
+            No car telemetry for this session window.
           </p>
         ) : (
           <>
@@ -257,7 +258,7 @@ function DriverTelemetryCard({
             className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider"
             style={{ color: 'var(--ios-label-tertiary)', background: 'var(--ios-grouped-secondary)' }}
           >
-            Position on lap — {driver.name_acronym}
+            On track — {driver.name_acronym}
           </div>
           <div className="relative w-full h-[min(42vh,340px)] min-h-[200px] bg-black">
             {renderExpandedTrackMap(driver.driver_number)}
@@ -282,10 +283,13 @@ export function DriverTelemetryGraphs({
 }: Props) {
   const sorted = useMemo(
     () =>
-      [...driverData].sort(
-        (a, b) => (a.bestLap.lap_duration ?? 0) - (b.bestLap.lap_duration ?? 0)
-      ),
-    [driverData]
+      [...driverData].sort((a, b) => {
+        const pa = interpolateReplayPosition(a.positionHistory, currentTime) ?? 999;
+        const pb = interpolateReplayPosition(b.positionHistory, currentTime) ?? 999;
+        if (pa !== pb) return pa - pb;
+        return a.driver.driver_number - b.driver.driver_number;
+      }),
+    [driverData, currentTime]
   );
 
   if (replayLoading && driverData.length === 0) {

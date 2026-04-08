@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { RefreshCw, ChevronDown, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,10 +34,13 @@ type HeaderProps = {
   onModeChange?: (mode: AppMode) => void;
   theme: Theme;
   onToggleTheme: () => void;
+  /** When true, top safe-area padding is omitted (shell nav already provides it). */
+  embeddedInShell?: boolean;
 };
 
 const LIVE_MODES: { id: AppMode; label: string }[] = [
   { id: 'live',    label: 'Live'    },
+  { id: 'results', label: 'Results' },
   { id: 'replay',  label: 'Replay'  },
   { id: 'graphs',  label: 'Graphs'  },
   { id: 'map',     label: 'Map'     },
@@ -61,13 +65,15 @@ export function Header({
   onModeChange,
   theme,
   onToggleTheme,
+  embeddedInShell,
 }: HeaderProps) {
+  const navigate = useNavigate();
   const MODES = isFinishedRace ? FINISHED_MODES : LIVE_MODES;
   return (
     <header
       className="ios-nav-blur shrink-0 z-20"
       style={{
-        paddingTop: 'max(8px, env(safe-area-inset-top))',
+        paddingTop: embeddedInShell ? 8 : 'max(8px, env(safe-area-inset-top))',
         paddingBottom: 10,
         paddingLeft: 'max(16px, env(safe-area-inset-left))',
         paddingRight: 'max(16px, env(safe-area-inset-right))',
@@ -76,11 +82,21 @@ export function Header({
       <div className="flex flex-col gap-3">
         {/* Top row: logo | [spacer] | session + live | refresh + theme */}
         <div className="flex items-center gap-3 min-h-[36px]">
-          {/* Logo */}
-          <div className="app-logo-mark shrink-0" role="img" aria-label="F1 Track">
-            <span className="app-logo-f1">F1</span>
-            <span className="app-logo-rest">Track</span>
-          </div>
+          {/* Logo → home hub */}
+          {!embeddedInShell && (
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="shrink-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ios-blue)]/50 active:opacity-80 transition-opacity"
+              aria-label="F1 Track — home"
+              title="Home"
+            >
+              <div className="app-logo-mark" aria-hidden>
+                <span className="app-logo-f1">F1</span>
+                <span className="app-logo-rest">Track</span>
+              </div>
+            </button>
+          )}
 
           {/* Live badge + track loading (left-ish) */}
           <div className="flex items-center gap-1.5">
@@ -141,7 +157,7 @@ export function Header({
             </button>
           )}
 
-          {/* Refresh + theme toggle */}
+          {/* Refresh + theme */}
           <div className="flex items-center gap-1 shrink-0">
             <Button
               variant="ghost"

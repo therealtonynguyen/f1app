@@ -13,7 +13,8 @@ const BATCH_SIZE = 2;
 const BATCH_DELAY_MS = 500;
 
 /**
- * Loads car_data for every driver's best replay lap (batched for OpenF1 rate limits).
+ * Loads car_data for every driver's full replay window (batched for OpenF1 rate limits).
+ * `lapDateStart` is the shared replay origin (`replayT0`) so scrubber time aligns with charts.
  */
 export function useAllDriversReplayCarSeries(
   sessionKey: number | null,
@@ -41,15 +42,20 @@ export function useAllDriversReplayCarSeries(
 
     const tasks = driverData
       .map((rd) => {
-        const lap = rd.bestLap;
-        const dur = lap.lap_duration;
-        if (dur == null) return null;
-        const dateEnd = new Date(new Date(lap.date_start).getTime() + (dur + 3) * 1000).toISOString();
+        const last = rd.lastLap;
+        if (last.lap_duration == null) return null;
+        const dateStart = rd.firstLap.date_start;
+        const dateEnd = new Date(
+          new Date(last.date_start).getTime() + (last.lap_duration + 3) * 1000
+        ).toISOString();
+        const t0 = new Date(rd.replayT0).getTime();
+        const lapDuration = (new Date(dateEnd).getTime() - t0) / 1000;
         return {
           driverNumber: rd.driver.driver_number,
-          dateStart: lap.date_start,
+          dateStart,
           dateEnd,
-          lapDuration: dur,
+          lapDateStart: rd.replayT0,
+          lapDuration,
         };
       })
       .filter((t): t is NonNullable<typeof t> => t != null);
@@ -70,14 +76,14 @@ export function useAllDriversReplayCarSeries(
                 if (cancelled) return;
                 const sorted = [...pts].sort((a, b) => a.date.localeCompare(b.date));
                 next.set(t.driverNumber, {
-                  lapDateStart: t.dateStart,
+                  lapDateStart: t.lapDateStart,
                   lapDuration: t.lapDuration,
                   samples: sorted,
                 });
               } catch {
                 if (!cancelled) {
                   next.set(t.driverNumber, {
-                    lapDateStart: t.dateStart,
+                    lapDateStart: t.lapDateStart,
                     lapDuration: t.lapDuration,
                     samples: [],
                   });

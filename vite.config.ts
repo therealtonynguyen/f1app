@@ -6,6 +6,15 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    // Pre-bundle icon + UI deps so dev server always resolves them after `npm install`
+    include: [
+      'lucide-react',
+      'clsx',
+      'tailwind-merge',
+      'class-variance-authority',
+    ],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
