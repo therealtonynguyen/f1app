@@ -57,13 +57,13 @@ export function MainShellLayout() {
     return () => document.removeEventListener('wheel', onWheel, { capture: true });
   }, []);
 
-  const isHome = location.pathname === '/';
+  const lightShellBg = location.pathname === '/';
 
   return (
     <div
       className={cn(
         'flex h-dvh max-h-dvh min-h-0 flex-col overflow-x-hidden',
-        isHome ? 'bg-neutral-50' : 'bg-[var(--ios-bg)]'
+        lightShellBg ? 'bg-neutral-50' : 'bg-[var(--ios-bg)]'
       )}
       style={shellStyle}
     >

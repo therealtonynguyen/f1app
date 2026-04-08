@@ -400,10 +400,12 @@ const sym = (file: string) => `/team-symbols/${file}`;
 export const TEAM_LOGO_URL: Record<TeamSlug, string> = {
   'red-bull-racing': `${SI_V11}/redbull.svg`,
   mercedes: `${SI_V11}/mercedes.svg`,
-  ferrari: `${SI_V11}/ferrari.svg`,
+  ferrari:
+    'https://static.wixstatic.com/media/f2bf43_655a783d22fd4786aa17b096ba3ff9e5~mv2.png',
   mclaren: 'https://upload.wikimedia.org/wikipedia/commons/c/cb/McLaren_Speedmark.svg',
   williams: sym('williams.svg'),
-  'aston-martin': sym('aston-martin.svg'),
+  'aston-martin':
+    'https://brandlogos.net/wp-content/uploads/2022/10/aston_martin_f1-logo_brandlogos.net_5zklm.png',
   alpine:
     'https://e7.pngegg.com/pngimages/253/337/png-clipart-alpine-car-logo-renault-symbol-car-blue-angle.png',
   haas: sym('haas.svg'),

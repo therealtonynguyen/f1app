@@ -4,6 +4,11 @@ import { HomeHub } from './pages/HomeHub';
 import { RaceCalendarPage } from './pages/RaceCalendarPage';
 import { AstonMartinBrandPage } from './pages/AstonMartinBrandPage';
 import { FerrariBrandPage } from './pages/FerrariBrandPage';
+import { CadillacBrandPage } from './pages/CadillacBrandPage';
+import { AlpineBrandPage } from './pages/AlpineBrandPage';
+import { RacingBullsBrandPage } from './pages/RacingBullsBrandPage';
+import { AudiBrandPage } from './pages/AudiBrandPage';
+import { MercedesBrandPage } from './pages/MercedesBrandPage';
 import { GenerationsPage } from './pages/GenerationsPage';
 import { TeamCarHistoryPage } from './pages/TeamCarHistoryPage';
 import { F1DataApp } from './F1DataApp';
@@ -21,6 +26,11 @@ export default function App() {
         <Route path="/calendar" element={<RaceCalendarPage />} />
         <Route path="/cars/aston-martin" element={<AstonMartinBrandPage />} />
         <Route path="/cars/ferrari" element={<FerrariBrandPage />} />
+        <Route path="/cars/cadillac" element={<CadillacBrandPage />} />
+        <Route path="/cars/alpine" element={<AlpineBrandPage />} />
+        <Route path="/cars/racing-bulls" element={<RacingBullsBrandPage />} />
+        <Route path="/cars/audi" element={<AudiBrandPage />} />
+        <Route path="/cars/mercedes" element={<MercedesBrandPage />} />
         <Route path="/cars" element={<GenerationsPage />} />
         <Route path="/generations" element={<Navigate to="/cars" replace />} />
         <Route path="/data" element={<F1DataApp />} />

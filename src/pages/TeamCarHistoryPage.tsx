@@ -15,9 +15,16 @@ import {
 
 const F1_RED = '#e10600';
 
-/** Dark-theme watermark: monochrome CDN marks are black → invert to light. Keep chroma for coloured badges. */
+/** Dark-theme watermark: monochrome CDN marks are black → invert to light. Skip invert for full-colour PNG marks. */
 function teamSymbolToneClass(slug: TeamSlug): string {
-  if (slug === 'force-india' || slug === 'alpine') return '';
+  if (
+    slug === 'force-india' ||
+    slug === 'alpine' ||
+    slug === 'aston-martin' ||
+    slug === 'ferrari'
+  ) {
+    return '';
+  }
   return 'brightness-0 invert';
 }
 

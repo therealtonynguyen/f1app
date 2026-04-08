@@ -68,18 +68,18 @@ const IMAGES_2019: readonly string[] = [
   'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/manual/Misc/Williams2019car/ARR_C38_Sideview_Giulia.webp',
 ];
 
-/** 2025 season machinery — order matches TEAMS_MODERN */
+/** 2025 season machinery — order matches TEAMS_2025 */
 const IMAGES_2025: readonly string[] = [
-  'https://www.themanual.com/tachyon/sites/9/2025/02/Red-Bull-Racing-RB21-F1-car-for-the-2025-season-left-front-three-quarter-view.jpg',
-  'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2025/Mercedes/Formula%201%20header%20templates%20-%202025-02-24T142006.923.webp',
+  'https://www.pitdebrief.com/wp-content/uploads/VF-25-Dual-199-scaled.jpg',
+  'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2025/Aston%20Martin/AMR25_SHOT2_8K_16x9.webp',
   'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2025/Ferrari/Ferrari%20SF-25%20launch%20renders/F677_still_04_v11_169.webp',
   'https://images.ctfassets.net/gy95mqeyjg28/102LBZx6fuFutHzm1FpmsG/050522531f665d14e66edb255f96a9c4/MCL39-Papaya-PR-Inline-1.jpg?w=3840&q=75&fm=webp',
-  'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2025/Aston%20Martin/AMR25_SHOT2_8K_16x9.webp',
   'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2025/Alpine/A525%20livery%20renders/Formula%201%20header%20templates%20(28).webp',
-  'https://www.pitdebrief.com/wp-content/uploads/VF-25-Dual-199-scaled.jpg',
-  'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2025/Racing%20Bulls%20(VCARB)/Formula%201%20header%20templates%20(56).webp',
   'https://cdn.sanity.io/images/fnx611yr/productionv2/519aaf0c0334653b08f52dba36d2c5a9577485b5-4088x3066.jpg?w=1200&auto=format',
+  'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2025/Mercedes/Formula%201%20header%20templates%20-%202025-02-24T142006.923.webp',
+  'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2025/Racing%20Bulls%20(VCARB)/Formula%201%20header%20templates%20(56).webp',
   'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2025/Kick%20Sauber/Formula%201%20header%20templates%20-%202025-02-21T164124.951.webp',
+  'https://www.themanual.com/tachyon/sites/9/2025/02/Red-Bull-Racing-RB21-F1-car-for-the-2025-season-left-front-three-quarter-view.jpg',
 ];
 
 /** 2026 grid — all teams: Formula 1 media (official 2026 assets) */
@@ -149,6 +149,32 @@ const TAGS_MODERN = [
   'Italian outfit',
   'Heritage',
   'Hinwil',
+] as const;
+
+const TEAMS_2025 = [
+  'Haas',
+  'Aston Martin',
+  'Ferrari',
+  'McLaren',
+  'Alpine',
+  'Williams',
+  'Mercedes',
+  'Racing Bulls',
+  'Kick Sauber',
+  'Red Bull Racing',
+] as const;
+
+const TAGS_2025 = [
+  'Kannapolis ties',
+  'Silverstone',
+  'Maranello',
+  'Works team energy',
+  'Renault DNA',
+  'Heritage',
+  'Hybrid mastery',
+  'Italian outfit',
+  'Hinwil',
+  'Aero philosophy',
 ] as const;
 
 /** 2023 grid — AlphaTauri leads; order matches IMAGES_2023 */
@@ -233,8 +259,8 @@ const IMAGES_2022: readonly string[] = [
 
 /** 2010 grid — order matches chassis image list */
 const TEAMS_2010 = [
-  'Red Bull Racing',
   'McLaren',
+  'Red Bull Racing',
   'Ferrari',
   'Mercedes',
   'Renault',
@@ -246,8 +272,8 @@ const TEAMS_2010 = [
 ] as const;
 
 const TAGS_2010 = [
-  'RB6 title year',
   'Vodafone MP4-25',
+  'RB6 title year',
   'F10 scarlet',
   'Brackley return',
   'R30 black & gold',
@@ -259,16 +285,16 @@ const TAGS_2010 = [
 ] as const;
 
 const IMAGES_2010: readonly string[] = [
-  'https://upload.wikimedia.org/wikipedia/commons/f/f4/Vettel_Bahrain_2010_%28cropped%29.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/a/af/Lewis_Hamilton_2010_Japan_2nd_Free_Practice_2.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/1/13/Felipe_Massa_Ferrari_Bahrain_2010_GP.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/5/5e/Schumacher_Mercedes_Jerez_%28cropped%29.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/8/85/Kubica_Bahrain_Grand_Prix_2010_%28cropped%29.jpg',
+  'https://www.racefans.net/wp-content/uploads/2010/01/racefansdotnet-24-01-27-12-28-14-2-xtb_online_trading_mp4-25_side-view_a4_300dpi_.jpg',
+  'https://media.drive.com.au/obj/tx_q:50,rs:auto:1920:1080:1/driveau/upload/cms/uploads/ANZiXr33Q6mcIPcWzscw',
+  'https://live.staticflickr.com/2733/4515336661_8702592639_b.jpg',
+  'https://static.wikia.nocookie.net/f1wikia/images/8/88/Mgp_w01.jpg/revision/latest?cb=20100619053930',
+  'https://www.ultimatecarpage.com/images/car/4420/Virgin-VR-01-Cosworth-35094.jpg',
   'https://upload.wikimedia.org/wikipedia/commons/5/54/Nico_Hulkenberg_2010_Malaysia_2nd_Free_Practice.jpg',
   'https://upload.wikimedia.org/wikipedia/commons/c/c7/Liuzzi_Bahrain_2010_%28cropped%29.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/9/9c/Sauber_Bahrain_2010.jpg',
+  'https://media.drive.com.au/obj/tx_q:50,rs:auto:1920:1080:1/driveau/upload/cms/uploads/sIe5SxbdRrSyzQTrj8Dm',
   'https://upload.wikimedia.org/wikipedia/commons/f/f0/Toro_Rosso_STR5_Bahrain_2010_%28cropped%29.jpg',
-  'https://upload.wikimedia.org/wikipedia/commons/c/c0/Lotus_in_Bahrain_%28cropped%29_2010.jpg',
+  'https://gglotus.org/blog/wp-content/uploads/2010/02/MG5D9844-4.jpg',
 ];
 
 function rowsForSeason(
@@ -289,7 +315,7 @@ export function generationTeamShowcase(year: number): GenerationTeamRow[] | null
   if (year === 2019) return rowsForSeason(TEAMS_2019, TAGS_2019, IMAGES_2019);
   if (year < 2022) return null;
   if (year >= 2026) return rowsForSeason(TEAMS_2026, TAGS_2026, IMAGES_2026);
-  if (year === 2025) return rowsForSeason(TEAMS_MODERN, TAGS_MODERN, IMAGES_2025);
+  if (year === 2025) return rowsForSeason(TEAMS_2025, TAGS_2025, IMAGES_2025);
   if (year === 2023) return rowsForSeason(TEAMS_2023, TAGS_2023, IMAGES_2023);
   if (year === 2022) return rowsForSeason(TEAMS_2022, TAGS_2022, IMAGES_2022);
   return rowsForSeason(TEAMS_MODERN, TAGS_MODERN, IMAGES_2024);

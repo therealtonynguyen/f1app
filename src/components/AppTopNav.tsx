@@ -11,24 +11,35 @@ const linkBase =
 
 export function AppTopNav({ visible = true }: { visible?: boolean }) {
   const location = useLocation();
-  const isHome = location.pathname === '/';
+  const isCadillacBrandPage = location.pathname === '/cars/cadillac';
+  const isAudiBrandPage = location.pathname === '/cars/audi';
+  const isRacingBullsBrandPage = location.pathname === '/cars/racing-bulls';
+  const isAlpineBrandPage = location.pathname === '/cars/alpine';
+  /** White bar + dark link treatment (home + Alpine brand page). */
+  const isLightNav = location.pathname === '/';
+  const navLightChrome = isLightNav || isAlpineBrandPage;
   const isAstonBrandPage = location.pathname === '/cars/aston-martin';
   const isFerrariBrandPage = location.pathname === '/cars/ferrari';
   const carsActive = location.pathname.startsWith('/cars');
   /** Bump on each hover enter so car drive animations remount and play again. */
   const [carsDriveCycle, setCarsDriveCycle] = useState(0);
+  const [carsMenuOpen, setCarsMenuOpen] = useState(false);
 
   return (
     <header
       className={cn(
         'fixed left-0 right-0 top-0 z-[100] overflow-visible border-b transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
-        isHome
+        navLightChrome
           ? 'border-neutral-200/90 bg-white'
           : isAstonBrandPage
             ? 'border-emerald-700/35 bg-[#0f2a1d]'
             : isFerrariBrandPage
               ? 'border-red-950/45 bg-[#1a0608]/58 backdrop-blur-2xl backdrop-saturate-150'
-              : 'border-white/[0.07] bg-black/70 backdrop-blur-2xl',
+              : isRacingBullsBrandPage
+                ? 'border-blue-950/35 bg-[#070b14]/95 backdrop-blur-xl backdrop-saturate-150'
+                : isCadillacBrandPage || isAudiBrandPage
+                  ? 'border-black bg-black'
+                  : 'border-white/[0.07] bg-black/70 backdrop-blur-2xl',
         visible ? 'translate-y-0' : 'pointer-events-none -translate-y-full'
       )}
       style={{
@@ -44,7 +55,7 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
             end
             className={cn(
               'flex items-center transition-opacity',
-              isHome ? 'hover:opacity-80' : 'hover:opacity-90'
+              navLightChrome ? 'hover:opacity-80' : 'hover:opacity-90'
             )}
             aria-label="F1 Track home"
           >
@@ -69,7 +80,7 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
               cn(
                 linkBase,
                 'shrink-0',
-                isHome
+                navLightChrome
                   ? isActive
                     ? 'text-neutral-900'
                     : 'text-neutral-500 hover:text-neutral-900'
@@ -87,7 +98,7 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
               cn(
                 linkBase,
                 'shrink-0',
-                isHome
+                navLightChrome
                   ? isActive
                     ? 'text-neutral-900'
                     : 'text-neutral-500 hover:text-neutral-900'
@@ -102,15 +113,23 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
 
           {/* Cars: hover reveals car strip (md+). carsDriveCycle restarts drive animation each hover. */}
           <div
-            className="group relative z-[120] shrink-0"
-            onMouseEnter={() => setCarsDriveCycle((n) => n + 1)}
+            className="relative z-[120] shrink-0"
+            onMouseEnter={() => {
+              setCarsDriveCycle((n) => n + 1);
+              setCarsMenuOpen(true);
+            }}
+            onMouseLeave={() => setCarsMenuOpen(false)}
+            onFocusCapture={() => setCarsMenuOpen(true)}
+            onBlurCapture={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setCarsMenuOpen(false);
+            }}
           >
             <NavLink
               to="/cars"
               className={cn(
                 linkBase,
                 'relative z-[230] block',
-                isHome
+                navLightChrome
                   ? carsActive
                     ? 'text-neutral-900'
                     : 'text-neutral-500 hover:text-neutral-900'
@@ -118,12 +137,16 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
                     ? 'text-white'
                     : 'text-white/55 hover:text-white/85'
               )}
+              onClick={() => setCarsMenuOpen(false)}
             >
               Cars
             </NavLink>
             {/* Invisible bridge so pointer can move from the nav link to the panel without leaving hover */}
             <div
-              className="pointer-events-none fixed inset-x-0 z-[215] hidden h-4 sm:block sm:group-hover:pointer-events-auto sm:group-focus-within:pointer-events-auto"
+              className={cn(
+                'pointer-events-none fixed inset-x-0 z-[215] hidden h-4 sm:block',
+                carsMenuOpen && 'sm:pointer-events-auto'
+              )}
               style={{
                 top: 'calc(max(env(safe-area-inset-top), 0px) + 2.25rem - 14px)',
               }}
@@ -133,16 +156,18 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
             <div
               className={cn(
                 'pointer-events-none fixed inset-x-0 z-[220] hidden origin-top',
-                'h-[min(30vw,400px)] w-full max-h-[min(480px,55vh)] min-h-[220px] sm:h-[min(34vw,440px)] sm:min-h-[260px]',
+                'h-[min(14vw,200px)] w-full max-h-[min(220px,26vh)] min-h-[110px] sm:h-[min(18vw,240px)] sm:min-h-[128px]',
                 'overflow-hidden rounded-none border-b',
-                isHome
-                  ? 'border-neutral-200 bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)]'
-                  : 'border-white/[0.12] bg-black shadow-[0_24px_48px_-8px_rgba(0,0,0,0.5)]',
-                '-translate-y-6 opacity-0',
-                'transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:duration-0 motion-reduce:transition-none',
+                navLightChrome
+                  ? 'border-white/30 bg-white/[0.1] shadow-[0_12px_44px_-18px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.4)] backdrop-blur-3xl backdrop-saturate-[1.35]'
+                  : 'border-white/[0.14] bg-black/[0.18] shadow-[0_18px_50px_-14px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl backdrop-saturate-150',
+                '-translate-y-full opacity-0',
+                'motion-reduce:translate-y-0',
+                'will-change-transform',
+                'transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                'motion-reduce:transition-[opacity] motion-reduce:duration-150',
                 'sm:block',
-                'group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100',
-                'group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100'
+                carsMenuOpen && 'pointer-events-auto translate-y-0 opacity-100'
               )}
               style={{
                 top: 'calc(max(env(safe-area-inset-top), 0px) + 2.25rem - 1px)',
@@ -150,14 +175,18 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
               role="presentation"
               aria-hidden
             >
-              <CarsNavHoverPreview key={carsDriveCycle} variant={isHome ? 'light' : 'dark'} />
+              <CarsNavHoverPreview
+                key={carsDriveCycle}
+                variant={navLightChrome ? 'light' : 'dark'}
+                onNavigate={() => setCarsMenuOpen(false)}
+              />
             </div>
           </div>
 
           <span
             className={cn(
               'shrink-0 px-1.5 py-0.5 text-[10.5px] font-normal tracking-wide sm:text-[11px]',
-              isHome ? 'text-neutral-400' : 'text-white/22'
+              navLightChrome ? 'text-neutral-400' : 'text-white/22'
             )}
             aria-disabled
           >
