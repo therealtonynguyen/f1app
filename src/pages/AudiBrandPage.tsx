@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { MainShellOutletContext } from '@/layouts/MainShellLayout';
 
@@ -35,22 +35,82 @@ const AUDI_HEADLINE_PHOTO =
 /** Headline over hero photo → fade to black before gallery */
 const AUDI_HEADLINE_SCROLL_VH = 320;
 
-const AUDI_GALLERY_IMGS = [
-  'https://uploads.audi-mediacenter.com/system/production/media/129036/images/798075a49be83d682dbc49c8528f9c6b9164fa06/A251836_web_1920.jpg?1763019513',
-  'https://uploads.audi-mediacenter.com/system/production/media/129027/images/8f76e15909299d782ae94115b802de3d7c8d3974/A251827_web_960.jpg?1763022795',
-  'https://uploads.audi-mediacenter.com/system/production/media/129016/images/0ff1fdaaf94a967677ae20a3b5748c47fd5c7206/A251816_web_1920.jpg?1762964887',
-  'https://uploads.audi-mediacenter.com/system/production/media/129007/images/880f87bb0f17f62df9d90d1691461a4156800c12/A251807_web_1920.jpg?1762964952',
-  'https://uploads.audi-mediacenter.com/system/production/media/129009/images/3f845b208326925d445ba978fe482e6df337f7c8/A251809_web_1920.jpg?1762965364',
-  'https://uploads.audi-mediacenter.com/system/production/media/129041/images/ef358db8e148c1f516a58f9f1beaa2a1aaa21a7f/A251841_web_1920.jpg?1763024903',
-  'https://uploads.audi-mediacenter.com/system/production/media/129012/images/07e1e175b56debcd553354b300f8ac933e77391d/A251812_web_1920.jpg?1762965262',
-  'https://uploads.audi-mediacenter.com/system/production/media/129004/images/04bf16f409d91f051f47838877530081bb2296a2/A251804_web_1920.jpg?1762964952',
-  'https://uploads.audi-mediacenter.com/system/production/media/129011/images/fb96278c0ae94c3293a301a3a710f3a9facd6c44/A251811_web_1920.jpg?1762964937',
-  'https://uploads.audi-mediacenter.com/system/production/media/129025/images/29647454524860952238230c6a055c5f0263850d/A251825_web_960.jpg?1762985369',
-  'https://uploads.audi-mediacenter.com/system/production/media/129005/images/c1050824c3c5d50f99a54c8ec3e9d7df1b6307ec/A251805_web_1920.jpg?1762965454',
-  'https://uploads.audi-mediacenter.com/system/production/media/129035/images/64d56511c00d41285dac3cc79acfe0134bcb42ff/A251835_web_960.jpg?1762987394',
-  'https://uploads.audi-mediacenter.com/system/production/media/129034/images/7963d560d9e1e2c33cdf1d3e71f6ce67d330f783/A251834_web_1920.jpg?1762987385',
-  'https://uploads.audi-mediacenter.com/system/production/media/129010/images/5f0413d1e582accfa8ae886d463dfbba466dfad5/A251810_web_1920.jpg?1762965256',
+/** Black → “world’s first” → fade into Speedcafe photo */
+const AUDI_WORLDS_FIRST_SCROLL_VH = 320;
+
+const AUDI_WORLDS_FIRST_SPEEDCAFE_IMG =
+  'https://speedcafe.b-cdn.net/wp-content/uploads/2026/01/A260222_large-1.jpg';
+
+/** Apple/SF stack for headline-style type */
+const AUDI_WORLDS_FIRST_FONT =
+  '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif';
+
+/** Sticky black — Nico’s helmet from left, then Gabriel’s from right */
+const AUDI_HELMETS_SCROLL_VH = 380;
+
+const AUDI_HELMET_NICO_IMG =
+  'https://www.f1-fansite.com/wp-content/uploads/2012/07/Nico-Hulkenberg-Helmet-Design.png';
+
+const AUDI_HELMET_GABRIEL_IMG =
+  'https://www.bellcollectibles.com/wp-content/uploads/2025/09/GABRIEL-BORTOLETO-2025-Mini-1.png';
+
+type AudiGalleryItem =
+  | { kind: 'single'; src: string }
+  | { kind: 'stack'; top: string; bottom: string };
+
+/** Order + stacked pairs (A251809 under A251816, A251807 under A251811); A251805/A251810 stack last (swapped with A251835); A251834 removed */
+const AUDI_GALLERY_ITEMS: readonly AudiGalleryItem[] = [
+  {
+    kind: 'single',
+    src: 'https://uploads.audi-mediacenter.com/system/production/media/129036/images/798075a49be83d682dbc49c8528f9c6b9164fa06/A251836_web_1920.jpg?1763019513',
+  },
+  {
+    kind: 'single',
+    src: 'https://uploads.audi-mediacenter.com/system/production/media/129027/images/8f76e15909299d782ae94115b802de3d7c8d3974/A251827_web_960.jpg?1763022795',
+  },
+  {
+    kind: 'stack',
+    top: 'https://uploads.audi-mediacenter.com/system/production/media/129016/images/0ff1fdaaf94a967677ae20a3b5748c47fd5c7206/A251816_web_1920.jpg?1762964887',
+    bottom:
+      'https://uploads.audi-mediacenter.com/system/production/media/129009/images/3f845b208326925d445ba978fe482e6df337f7c8/A251809_web_1920.jpg?1762965364',
+  },
+  {
+    kind: 'single',
+    src: 'https://uploads.audi-mediacenter.com/system/production/media/129041/images/ef358db8e148c1f516a58f9f1beaa2a1aaa21a7f/A251841_web_1920.jpg?1763024903',
+  },
+  {
+    kind: 'single',
+    src: 'https://uploads.audi-mediacenter.com/system/production/media/129012/images/07e1e175b56debcd553354b300f8ac933e77391d/A251812_web_1920.jpg?1762965262',
+  },
+  {
+    kind: 'single',
+    src: 'https://uploads.audi-mediacenter.com/system/production/media/129004/images/04bf16f409d91f051f47838877530081bb2296a2/A251804_web_1920.jpg?1762964952',
+  },
+  {
+    kind: 'stack',
+    top: 'https://uploads.audi-mediacenter.com/system/production/media/129011/images/fb96278c0ae94c3293a301a3a710f3a9facd6c44/A251811_web_1920.jpg?1762964937',
+    bottom:
+      'https://uploads.audi-mediacenter.com/system/production/media/129007/images/880f87bb0f17f62df9d90d1691461a4156800c12/A251807_web_1920.jpg?1762964952',
+  },
+  {
+    kind: 'single',
+    src: 'https://uploads.audi-mediacenter.com/system/production/media/129025/images/29647454524860952238230c6a055c5f0263850d/A251825_web_960.jpg?1762985369',
+  },
+  {
+    kind: 'single',
+    src: 'https://uploads.audi-mediacenter.com/system/production/media/129035/images/64d56511c00d41285dac3cc79acfe0134bcb42ff/A251835_web_960.jpg?1762987394',
+  },
+  {
+    kind: 'stack',
+    top: 'https://uploads.audi-mediacenter.com/system/production/media/129005/images/c1050824c3c5d50f99a54c8ec3e9d7df1b6307ec/A251805_web_1920.jpg?1762965454',
+    bottom:
+      'https://uploads.audi-mediacenter.com/system/production/media/129010/images/5f0413d1e582accfa8ae886d463dfbba466dfad5/A251810_web_1920.jpg?1762965256',
+  },
 ] as const;
+
+/** Same full-width row treatment as the first gallery image */
+const AUDI_GALLERY_FULL_WIDTH_IMG =
+  'https://uploads.audi-mediacenter.com/system/production/media/129041/images/ef358db8e148c1f516a58f9f1beaa2a1aaa21a7f/A251841_web_1920.jpg?1763024903';
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -85,10 +145,14 @@ export function AudiBrandPage() {
   const carTrackRef = useRef<HTMLDivElement>(null);
   const fadeTrackRef = useRef<HTMLDivElement>(null);
   const headlineTrackRef = useRef<HTMLDivElement>(null);
+  const worldsFirstTrackRef = useRef<HTMLDivElement>(null);
+  const helmetsTrackRef = useRef<HTMLDivElement>(null);
   const [ringProgress, setRingProgress] = useState(0);
   const [carProgress, setCarProgress] = useState(0);
   const [fadeProgress, setFadeProgress] = useState(0);
   const [headlineProgress, setHeadlineProgress] = useState(0);
+  const [worldsFirstProgress, setWorldsFirstProgress] = useState(0);
+  const [helmetsProgress, setHelmetsProgress] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
@@ -126,6 +190,20 @@ export function AudiBrandPage() {
       const range = Math.max(1, headlineTrack.offsetHeight - main.clientHeight);
       setHeadlineProgress(clamp01((main.scrollTop - top) / range));
     }
+
+    const worldsFirstTrack = worldsFirstTrackRef.current;
+    if (worldsFirstTrack) {
+      const top = offsetTopToAncestor(worldsFirstTrack, main);
+      const range = Math.max(1, worldsFirstTrack.offsetHeight - main.clientHeight);
+      setWorldsFirstProgress(clamp01((main.scrollTop - top) / range));
+    }
+
+    const helmetsTrack = helmetsTrackRef.current;
+    if (helmetsTrack) {
+      const top = offsetTopToAncestor(helmetsTrack, main);
+      const range = Math.max(1, helmetsTrack.offsetHeight - main.clientHeight);
+      setHelmetsProgress(clamp01((main.scrollTop - top) / range));
+    }
   }, [mainScrollRef]);
 
   useEffect(() => {
@@ -140,6 +218,8 @@ export function AudiBrandPage() {
       if (carTrackRef.current) ro.observe(carTrackRef.current);
       if (fadeTrackRef.current) ro.observe(fadeTrackRef.current);
       if (headlineTrackRef.current) ro.observe(headlineTrackRef.current);
+      if (worldsFirstTrackRef.current) ro.observe(worldsFirstTrackRef.current);
+      if (helmetsTrackRef.current) ro.observe(helmetsTrackRef.current);
     }
     return () => {
       main.removeEventListener('scroll', tick);
@@ -160,6 +240,19 @@ export function AudiBrandPage() {
     : easeOutCubic(clamp01((hp - 0.05) / 0.26)) * (1 - easeOutCubic(clamp01((hp - 0.44) / 0.28)));
   const headlineBlackOpacity = reduceMotion ? 0 : easeOutCubic(clamp01((hp - 0.38) / 0.48));
   const headlineTextShift = reduceMotion ? 0 : (1 - easeOutCubic(clamp01((hp - 0.05) / 0.26))) * 14;
+
+  const wf = worldsFirstProgress;
+  /** Black clears → Speedcafe full-bleed */
+  const worldsFirstPhotoReveal = reduceMotion ? 1 : easeOutCubic(clamp01((wf - 0.08) / 0.28));
+  const worldsFirstBlackVeil = 1 - worldsFirstPhotoReveal;
+
+  const hel = helmetsProgress;
+  /** Nico from left, then Gabriel from right (later window) */
+  const helmetNicoT = reduceMotion ? 1 : easeOutCubic(clamp01((hel - 0.05) / 0.3));
+  const helmetGabT = reduceMotion ? 1 : easeOutCubic(clamp01((hel - 0.4) / 0.32));
+  /** vw offset from viewport center: negative = left, positive = right */
+  const helmetNicoXvw = -88 + helmetNicoT * 72;
+  const helmetGabXvw = 88 - helmetGabT * 72;
 
   return (
     <div
@@ -312,55 +405,183 @@ export function AudiBrandPage() {
         </div>
       )}
 
-      {/* Black screen — press gallery: natural aspect (no CSS crop); inset left, flush right */}
+      {/* Black screen — press gallery: natural aspect, edge-to-edge tiles (no gaps) */}
       <section
-        className="relative z-10 bg-black pb-20 pl-4 pt-6 sm:pb-28 sm:pl-8 sm:pt-10 pr-[max(0px,env(safe-area-inset-right))]"
+        className="relative z-10 bg-black pb-20 pl-[env(safe-area-inset-left)] pt-6 sm:pb-28 sm:pt-10 pr-[env(safe-area-inset-right)]"
         aria-label="Audi Formula 1 gallery"
       >
-        <div className="grid w-full max-w-none gap-3 sm:grid-cols-2 sm:gap-4 md:gap-5">
-          {AUDI_GALLERY_IMGS.map((src, i) => (
-            <div
-              key={src}
-              className={cn(
-                'relative w-full overflow-hidden ring-1 ring-white/[0.06]',
-                'max-sm:rounded-l-sm max-sm:rounded-r-none',
-                'sm:rounded-sm',
-                (i === 0 || (i > 0 && i % 2 === 0)) && 'sm:rounded-r-none',
-                i === 0 && 'sm:col-span-2'
-              )}
-            >
-              <img
-                src={src}
-                alt=""
-                className="block h-auto w-full max-w-full object-contain object-center"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 1024px"
-                loading="lazy"
-                decoding="async"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-          ))}
+        <div className="grid w-full max-w-none grid-cols-1 gap-0 sm:grid-cols-2">
+          {AUDI_GALLERY_ITEMS.map((item, i) => {
+            const fullWidthRow =
+              item.kind === 'single' && (i === 0 || item.src === AUDI_GALLERY_FULL_WIDTH_IMG);
+            if (item.kind === 'stack') {
+              return (
+                <div
+                  key={`stack-${item.top}`}
+                  className="relative flex w-full flex-col gap-0 overflow-hidden bg-black"
+                >
+                  <div className="relative w-full overflow-hidden">
+                    <img
+                      src={item.top}
+                      alt=""
+                      className="block h-auto w-full max-w-full object-contain object-center"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 1024px"
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="relative w-full overflow-hidden">
+                    <img
+                      src={item.bottom}
+                      alt=""
+                      className="block h-auto w-full max-w-full object-contain object-center"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 1024px"
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div
+                key={item.src}
+                className={cn(
+                  'relative w-full overflow-hidden bg-black',
+                  fullWidthRow && 'sm:col-span-2'
+                )}
+              >
+                <img
+                  src={item.src}
+                  alt=""
+                  className="block h-auto w-full max-w-full object-contain object-center"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 1024px"
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            );
+          })}
         </div>
       </section>
 
-      {/* Continue scrolling — copy + chassis link */}
-      <section
-        className="relative z-10 border-t border-white/[0.08] bg-black px-6 py-24 sm:px-10 sm:py-32"
-        style={{ fontFamily: 'var(--ios-font)' }}
-      >
-        <div className="mx-auto max-w-xl text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/35">Audi</p>
-          <p className="mt-5 text-[15px] leading-relaxed text-white/45">
-            Four rings — one legacy. Explore every Audi chassis in the app.
-          </p>
-          <Link
-            to="/cars/team/audi"
-            className="mt-10 inline-flex rounded-full border border-white/20 bg-white/5 px-8 py-3 text-[14px] font-semibold text-white/90 transition-colors hover:bg-white/10"
-          >
-            Chassis history
-          </Link>
+      {/* Black → “world’s first” (SF) → Speedcafe photo */}
+      {reduceMotion ? (
+        <section className="relative z-10 w-full bg-black" aria-label="World’s first">
+          <div className="relative flex min-h-[min(72dvh,640px)] flex-col items-center justify-center overflow-hidden px-6 py-16">
+            <img
+              src={AUDI_WORLDS_FIRST_SPEEDCAFE_IMG}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover object-center"
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+            <p
+              className="relative z-10 text-center font-semibold tracking-[-0.03em] text-white [text-shadow:0_2px_40px_rgba(0,0,0,0.65)]"
+              style={{
+                fontFamily: AUDI_WORLDS_FIRST_FONT,
+                fontSize: 'clamp(2rem, 7vw, 3.5rem)',
+                lineHeight: 1.05,
+              }}
+            >
+              {"world's first"}
+            </p>
+          </div>
+        </section>
+      ) : (
+        <div
+          ref={worldsFirstTrackRef}
+          className="relative w-full bg-black"
+          style={{ minHeight: `${AUDI_WORLDS_FIRST_SCROLL_VH}vh` }}
+        >
+          <div className="sticky top-0 z-10 flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black">
+            <img
+              src={AUDI_WORLDS_FIRST_SPEEDCAFE_IMG}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover object-center"
+              style={{ opacity: worldsFirstPhotoReveal }}
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-black" style={{ opacity: worldsFirstBlackVeil }} aria-hidden />
+            <p
+              className="relative z-10 px-6 text-center font-semibold tracking-[-0.03em] text-white [text-shadow:0_2px_40px_rgba(0,0,0,0.65)]"
+              style={{
+                fontFamily: AUDI_WORLDS_FIRST_FONT,
+                fontSize: 'clamp(2rem, 7.5vw, 4.25rem)',
+                lineHeight: 1.05,
+              }}
+            >
+              {"world's first"}
+            </p>
+          </div>
         </div>
-      </section>
+      )}
+
+      {/* Sticky black — helmets slide in from left / right */}
+      {reduceMotion ? (
+        <section
+          className="relative z-10 flex w-full justify-center bg-black px-4 py-16"
+          aria-label="Driver helmets"
+        >
+          <div className="flex max-w-4xl flex-wrap items-center justify-center gap-10 sm:gap-14">
+            <img
+              src={AUDI_HELMET_NICO_IMG}
+              alt=""
+              className="h-auto max-h-[min(42dvh,320px)] w-auto max-w-[min(46vw,280px)] object-contain"
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+            <img
+              src={AUDI_HELMET_GABRIEL_IMG}
+              alt=""
+              className="h-auto max-h-[min(42dvh,320px)] w-auto max-w-[min(46vw,280px)] object-contain"
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </section>
+      ) : (
+        <div
+          ref={helmetsTrackRef}
+          className="relative w-full bg-black"
+          style={{ minHeight: `${AUDI_HELMETS_SCROLL_VH}vh` }}
+        >
+          <div className="sticky top-0 z-10 flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black">
+            <img
+              src={AUDI_HELMET_NICO_IMG}
+              alt=""
+              className="pointer-events-none absolute left-1/2 top-1/2 h-auto max-h-[min(42dvh,360px)] w-auto max-w-[min(48vw,300px)] select-none object-contain"
+              style={{
+                opacity: helmetNicoT,
+                transform: `translate3d(calc(-50% + ${helmetNicoXvw}vw), -50%, 0)`,
+              }}
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+            <img
+              src={AUDI_HELMET_GABRIEL_IMG}
+              alt=""
+              className="pointer-events-none absolute left-1/2 top-1/2 z-[1] h-auto max-h-[min(42dvh,360px)] w-auto max-w-[min(48vw,300px)] select-none object-contain"
+              style={{
+                opacity: helmetGabT,
+                transform: `translate3d(calc(-50% + ${helmetGabXvw}vw), -50%, 0)`,
+              }}
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="h-[max(28px,env(safe-area-inset-bottom))] bg-black" aria-hidden />
     </div>
