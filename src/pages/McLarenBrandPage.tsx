@@ -2,11 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import type { MainShellOutletContext } from '@/layouts/MainShellLayout';
 
-/** FOM — McLaren MCL40 social */
-const MCLAREN_HERO_IMG =
-  'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/McLaren/MCL40_C_LN_Social_1920x1080.webp';
-
-/** FOM — Hall of Fame 2024 (sticky scene + grayscale band below) */
+/** FOM — Hall of Fame 2024 (sticky scene; “home of legends” on scroll) */
 const MCLAREN_HALL_OF_FAME_IMG =
   'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/manual/Hall%20of%20Fame%202024/GettyImages-659224375.webp';
 
@@ -14,10 +10,18 @@ const MCLAREN_HALL_OF_FAME_IMG =
 const MCL39_FEATURE_IMG =
   'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/McLaren/MCL40_LN_Allwyn_side_right.webp';
 
-const SENNA_SCROLL_VH = 300;
+/** McLaren papaya — full-bleed transition after Hall of Fame */
+const MCLAREN_PAPAYA = '#FF8000';
+
+/** Taller track: legends + centered hold + orange panels slide in */
+const HALL_OF_FAME_SCROLL_VH = 420;
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
+}
+
+function easeOutCubic(t: number) {
+  return 1 - (1 - t) ** 3;
 }
 
 function offsetTopToAncestor(element: HTMLElement, ancestor: HTMLElement): number {
@@ -30,14 +34,20 @@ function offsetTopToAncestor(element: HTMLElement, ancestor: HTMLElement): numbe
   return top;
 }
 
+/** “home of legends” eases in over the first ~45% of this section’s scroll */
 function legendsLineFade(p: number): number {
-  return clamp01((p - 0.22) / 0.45);
+  return easeOutCubic(clamp01((p - 0.12) / 0.38));
+}
+
+/** Two orange halves: start after legends read, finish before track end */
+function orangeSlideProgress(p: number): number {
+  return easeOutCubic(clamp01((p - 0.48) / 0.46));
 }
 
 export function McLarenBrandPage() {
   const { mainScrollRef } = useOutletContext<MainShellOutletContext>();
-  const sennaTrackRef = useRef<HTMLDivElement>(null);
-  const [sennaProgress, setSennaProgress] = useState(0);
+  const hallOfFameTrackRef = useRef<HTMLDivElement>(null);
+  const [hallProgress, setHallProgress] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
@@ -48,11 +58,11 @@ export function McLarenBrandPage() {
 
   const updateScroll = useCallback(() => {
     const main = mainScrollRef.current;
-    const track = sennaTrackRef.current;
+    const track = hallOfFameTrackRef.current;
     if (!main || !track) return;
     const tTop = offsetTopToAncestor(track, main);
     const range = Math.max(1, track.offsetHeight - main.clientHeight);
-    setSennaProgress(clamp01((main.scrollTop - tTop) / range));
+    setHallProgress(clamp01((main.scrollTop - tTop) / range));
   }, [mainScrollRef]);
 
   useEffect(() => {
@@ -62,7 +72,7 @@ export function McLarenBrandPage() {
     main.addEventListener('scroll', updateScroll, { passive: true });
     window.addEventListener('resize', updateScroll, { passive: true });
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateScroll) : null;
-    if (ro && sennaTrackRef.current) ro.observe(sennaTrackRef.current);
+    if (ro && hallOfFameTrackRef.current) ro.observe(hallOfFameTrackRef.current);
     return () => {
       main.removeEventListener('scroll', updateScroll);
       window.removeEventListener('resize', updateScroll);
@@ -70,66 +80,66 @@ export function McLarenBrandPage() {
     };
   }, [mainScrollRef, updateScroll]);
 
-  const legendsOpacity = reduceMotion ? 1 : legendsLineFade(sennaProgress);
-  const legendsLift = reduceMotion ? 0 : (1 - legendsOpacity) * 16;
+  const p = hallProgress;
+  const legendsOpacity = reduceMotion ? 1 : legendsLineFade(p);
+  /** Reduced motion: skip orange wipe so the portrait stays visible */
+  const orangeS = reduceMotion ? 0 : orangeSlideProgress(p);
 
   return (
     <div
       className="relative -mt-[var(--app-top-nav-offset)] flex min-h-0 flex-1 flex-col bg-neutral-950"
       style={{ fontFamily: 'var(--ios-font)' }}
     >
-      <section className="relative min-h-[min(100dvh,960px)] w-full overflow-hidden">
-        <img
-          src={MCLAREN_HERO_IMG}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover object-center"
-          loading="eager"
-          decoding="async"
-          referrerPolicy="no-referrer"
-        />
-      </section>
-
-      {/* Sticky Hall of Fame photo — centered; “home of legends” fades in on the right */}
+      {/* Sticky Hall of Fame — centered stack; scroll → papaya halves from L/R */}
       <div
-        ref={sennaTrackRef}
+        ref={hallOfFameTrackRef}
         className="relative w-full bg-neutral-950"
-        style={{ minHeight: `${SENNA_SCROLL_VH}vh` }}
+        style={{ minHeight: `${HALL_OF_FAME_SCROLL_VH}vh` }}
       >
         <div className="sticky top-0 flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-neutral-950">
-          <img
-            src={MCLAREN_HALL_OF_FAME_IMG}
-            alt=""
-            className="pointer-events-none relative z-0 max-h-[min(72dvh,680px)] w-auto max-w-[min(92vw,920px)] object-contain object-center shadow-2xl"
-            loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
-          />
-          <div
-            className="pointer-events-none absolute right-0 top-1/2 z-10 max-w-[min(52%,22rem)] px-5 text-right sm:max-w-md sm:px-10 md:pr-14"
-            style={{
-              opacity: legendsOpacity,
-              transform: `translate3d(0, calc(-50% + ${legendsLift}px), 0)`,
-            }}
-          >
-            <p className="text-[clamp(1.35rem,4.5vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em] text-white [text-shadow:0_4px_40px_rgba(0,0,0,0.65)]">
-              home of legends
-            </p>
+          <div className="relative z-10 mx-auto max-w-[min(92vw,960px)] px-5">
+            <div className="relative inline-block max-w-full">
+              <img
+                src={MCLAREN_HALL_OF_FAME_IMG}
+                alt=""
+                className="pointer-events-none block max-h-[min(52dvh,560px)] w-auto max-w-full object-contain object-center shadow-2xl sm:max-h-[min(56dvh,620px)]"
+                loading="eager"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+              <p
+                className="absolute inset-0 flex items-center justify-center px-4 text-center text-[clamp(1.35rem,4.5vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.85),0_4px_48px_rgba(0,0,0,0.55)]"
+                style={{
+                  opacity: legendsOpacity,
+                  willChange: reduceMotion ? undefined : 'opacity',
+                }}
+              >
+                home of legends
+              </p>
+            </div>
+          </div>
+
+          {/* Two orange squares (half viewport each) — slide in from left & right */}
+          <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
+            <div
+              className="absolute left-0 top-0 h-full w-1/2 min-w-[50%]"
+              style={{
+                backgroundColor: MCLAREN_PAPAYA,
+                transform: `translate3d(calc(-100% + ${orangeS * 100}%), 0, 0)`,
+                willChange: reduceMotion ? undefined : 'transform',
+              }}
+            />
+            <div
+              className="absolute right-0 top-0 h-full w-1/2 min-w-[50%]"
+              style={{
+                backgroundColor: MCLAREN_PAPAYA,
+                transform: `translate3d(calc(100% - ${orangeS * 100}%), 0, 0)`,
+                willChange: reduceMotion ? undefined : 'transform',
+              }}
+            />
           </div>
         </div>
       </div>
-
-      <section className="relative z-10 border-t border-neutral-900 bg-black">
-        <div className="relative w-full overflow-hidden">
-          <img
-            src={MCLAREN_HALL_OF_FAME_IMG}
-            alt=""
-            className="h-auto w-full object-cover object-center grayscale"
-            loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      </section>
 
       <section className="relative z-10 border-t border-neutral-200 bg-white px-6 py-14 sm:px-10 sm:py-20">
         <figure className="mx-auto max-w-6xl">

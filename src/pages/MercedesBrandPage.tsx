@@ -16,6 +16,12 @@ const SPIN_TRACK_VH = 320;
 /** Scroll length for W17 type → FOM W17 photo reveal */
 const W17_TRACK_VH = 380;
 
+/** Scroll length after drivers — 7 teal bars slide down (L→R) */
+const TEAL_BARS_TRACK_VH = 300;
+
+/** Petronas / Mercedes accent (same as UI elsewhere on this page) */
+const MERCEDES_TEAL = '#00D2BE';
+
 /** FOM — Mercedes-AMG F1 W17 E PERFORMANCE (scroll-reveal) */
 const MERCEDES_W17_IMG =
   'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/Mercedes/Mercedes-AMG%20F1%20W17%20E%20PERFORMANCE%20-%20GR%204.webp';
@@ -77,13 +83,22 @@ function w17PhotoReveal(p: number): number {
   return easeOutCubic(clamp01((p - 0.34) / 0.58));
 }
 
+/** Teal column i (0…6): starts later left → right, slides from top to full cover. */
+function tealBarCoverProgress(i: number, p: number): number {
+  const start = 0.03 + i * 0.095;
+  const dur = 0.22;
+  return easeOutCubic(clamp01((p - start) / dur));
+}
+
 /** Mercedes-AMG Petronas F1 — panorama hero + scroll-driven spinning logo. */
 export function MercedesBrandPage() {
   const { mainScrollRef } = useOutletContext<MainShellOutletContext>();
   const spinTrackRef = useRef<HTMLDivElement>(null);
   const w17TrackRef = useRef<HTMLDivElement>(null);
+  const tealBarsTrackRef = useRef<HTMLDivElement>(null);
   const [spinProgress, setSpinProgress] = useState(0);
   const [w17Progress, setW17Progress] = useState(0);
+  const [tealBarsProgress, setTealBarsProgress] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
@@ -108,6 +123,13 @@ export function MercedesBrandPage() {
       const range = Math.max(1, w17Track.offsetHeight - main.clientHeight);
       setW17Progress(clamp01((scrollTop - top) / range));
     }
+
+    const tealBarsTrack = tealBarsTrackRef.current;
+    if (tealBarsTrack) {
+      const top = offsetTopToAncestor(tealBarsTrack, main);
+      const range = Math.max(1, tealBarsTrack.offsetHeight - main.clientHeight);
+      setTealBarsProgress(clamp01((scrollTop - top) / range));
+    }
   }, [mainScrollRef]);
 
   useEffect(() => {
@@ -120,6 +142,7 @@ export function MercedesBrandPage() {
     if (ro) {
       if (spinTrackRef.current) ro.observe(spinTrackRef.current);
       if (w17TrackRef.current) ro.observe(w17TrackRef.current);
+      if (tealBarsTrackRef.current) ro.observe(tealBarsTrackRef.current);
     }
     return () => {
       main.removeEventListener('scroll', updateScroll);
@@ -162,15 +185,6 @@ export function MercedesBrandPage() {
           <h1 className="mt-4 max-w-4xl text-[clamp(2rem,6vw,3.5rem)] font-light leading-[1.05] tracking-[-0.02em] text-white [text-shadow:0_2px_32px_rgba(0,0,0,0.55)]">
             The Silver Arrows
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-[15px] font-normal leading-relaxed text-white/55 sm:text-[16px]">
-            Brackley · Brixworth · Silverstone
-          </p>
-          <Link
-            to="/cars/team/mercedes"
-            className="mt-10 inline-flex rounded-full border border-white/20 bg-white/10 px-8 py-3 text-[13px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/18"
-          >
-            Car history
-          </Link>
         </div>
       </section>
 
@@ -323,6 +337,32 @@ export function MercedesBrandPage() {
             />
           </div>
         </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-7 z-20 flex justify-center px-4 pb-6 md:bottom-9 md:pb-8">
+          <a
+            href="#upcoming-legends"
+            style={{ fontFamily: 'var(--ios-font)' }}
+            className="pointer-events-auto inline-flex h-10 min-h-10 min-w-[10rem] scale-[0.94] items-center justify-center rounded-full border-2 border-neutral-500 bg-black px-10 text-[14px] font-medium leading-none tracking-normal text-white transition-[transform,border-color] duration-200 ease-out hover:border-[#00D2BE] active:scale-[0.92] motion-reduce:transform-none focus-visible:border-[#00D2BE] focus-visible:outline-none sm:min-w-[11rem] sm:px-11"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById('upcoming-legends')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
+            See More
+          </a>
+        </div>
+      </section>
+
+      {/* Between W17 gallery and drivers — Petronas teal rule + headline */}
+      <section
+        id="upcoming-legends"
+        className="relative z-10 flex min-h-[min(48svh,640px)] w-full flex-col items-center justify-center border-t-[3px] border-[#00D2BE] bg-black px-6 py-28 sm:px-10 sm:py-40"
+        style={{ fontFamily: 'var(--ios-font)' }}
+        aria-label="Upcoming Legends"
+      >
+        <p className="text-center text-[clamp(1.75rem,5vw,2.75rem)] font-semibold tracking-[-0.02em] text-white">
+          Upcoming Legends
+        </p>
       </section>
 
       {/* Drivers — black block, Kimi & George side by side */}
@@ -332,42 +372,81 @@ export function MercedesBrandPage() {
         aria-label="Mercedes-AMG Petronas drivers"
       >
         <div className="grid min-h-[min(90svh,920px)] w-full grid-cols-1 gap-px bg-white/[0.1] md:grid-cols-2">
-          <figure className="relative m-0 flex min-h-[min(52svh,560px)] flex-col bg-black md:min-h-0">
-            <div className="relative min-h-0 flex-1 overflow-hidden">
-              <img
-                src={MERCEDES_DRIVER_KIMI_IMG}
-                alt="Kimi Antonelli"
-                className="absolute inset-0 h-full w-full object-cover object-center"
-                sizes="(min-width:768px) 50vw, 100vw"
-                loading="lazy"
-                decoding="async"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <figcaption className="shrink-0 border-t border-white/[0.06] px-4 py-4 text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40">
-              Kimi Antonelli
-            </figcaption>
-          </figure>
-          <figure className="relative m-0 flex min-h-[min(52svh,560px)] flex-col bg-black md:min-h-0">
-            <div className="relative min-h-0 flex-1 overflow-hidden">
-              <img
-                src={MERCEDES_DRIVER_GEORGE_IMG}
-                alt="George Russell"
-                className="absolute inset-0 h-full w-full object-cover object-center"
-                sizes="(min-width:768px) 50vw, 100vw"
-                loading="lazy"
-                decoding="async"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <figcaption className="shrink-0 border-t border-white/[0.06] px-4 py-4 text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40">
-              George Russell
-            </figcaption>
-          </figure>
+          <Link
+            to="/cars/mercedes/drivers/kimi-antonelli"
+            className="group relative m-0 flex min-h-[min(52svh,560px)] flex-col bg-black outline-none transition-[opacity,transform] hover:opacity-[0.97] active:scale-[0.998] md:min-h-0 focus-visible:ring-2 focus-visible:ring-[#00D2BE] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            aria-label="Open Kimi Antonelli driver page"
+          >
+            <figure className="relative m-0 flex min-h-0 flex-1 flex-col">
+              <div className="relative min-h-0 flex-1 overflow-hidden">
+                <img
+                  src={MERCEDES_DRIVER_KIMI_IMG}
+                  alt="Kimi Antonelli"
+                  className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+                  sizes="(min-width:768px) 50vw, 100vw"
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <figcaption className="shrink-0 border-t border-white/[0.06] px-4 py-4 text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40 group-hover:text-white/55">
+                Kimi Antonelli
+              </figcaption>
+            </figure>
+          </Link>
+          <Link
+            to="/cars/mercedes/drivers/george-russell"
+            className="group relative m-0 flex min-h-[min(52svh,560px)] flex-col bg-black outline-none transition-[opacity,transform] hover:opacity-[0.97] active:scale-[0.998] md:min-h-0 focus-visible:ring-2 focus-visible:ring-[#00D2BE] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            aria-label="Open George Russell driver page"
+          >
+            <figure className="relative m-0 flex min-h-0 flex-1 flex-col">
+              <div className="relative min-h-0 flex-1 overflow-hidden">
+                <img
+                  src={MERCEDES_DRIVER_GEORGE_IMG}
+                  alt="George Russell"
+                  className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+                  sizes="(min-width:768px) 50vw, 100vw"
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <figcaption className="shrink-0 border-t border-white/[0.06] px-4 py-4 text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40 group-hover:text-white/55">
+                George Russell
+              </figcaption>
+            </figure>
+          </Link>
         </div>
       </section>
 
-      <div className="min-h-[30dvh] w-full bg-black" aria-hidden />
+      {/* After drivers — seven Petronas-teal columns drop in, left → right, covering the viewport */}
+      <div
+        ref={tealBarsTrackRef}
+        className="relative z-20 w-full bg-black"
+        style={{ minHeight: `${TEAL_BARS_TRACK_VH}vh` }}
+        aria-hidden
+      >
+        <div className="sticky top-0 flex h-[100dvh] w-full overflow-hidden bg-black">
+          <div className="flex h-full w-full flex-row">
+            {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+              const barP = reduceMotion ? 1 : tealBarCoverProgress(i, tealBarsProgress);
+              return (
+                <div
+                  key={i}
+                  className="h-full min-h-0 flex-1"
+                  style={{
+                    backgroundColor: MERCEDES_TEAL,
+                    transform: `translate3d(0, calc(-100% + ${barP * 100}%), 0)`,
+                    willChange: reduceMotion ? undefined : 'transform',
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="min-h-[max(24px,env(safe-area-inset-bottom))] w-full bg-black" aria-hidden />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { AlpineBrandPage } from './pages/AlpineBrandPage';
 import { RacingBullsBrandPage } from './pages/RacingBullsBrandPage';
 import { AudiBrandPage } from './pages/AudiBrandPage';
 import { MercedesBrandPage } from './pages/MercedesBrandPage';
+import { MercedesDriverPage } from './pages/MercedesDriverPage';
 import { HaasBrandPage } from './pages/HaasBrandPage';
 import { WilliamsBrandPage } from './pages/WilliamsBrandPage';
 import { McLarenBrandPage } from './pages/McLarenBrandPage';
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/cars/racing-bulls" element={<RacingBullsBrandPage />} />
         <Route path="/cars/audi" element={<AudiBrandPage />} />
         <Route path="/cars/mercedes" element={<MercedesBrandPage />} />
+        <Route path="/cars/mercedes/drivers/:driverSlug" element={<MercedesDriverPage />} />
         <Route path="/cars/haas" element={<HaasBrandPage />} />
         <Route path="/cars/williams" element={<WilliamsBrandPage />} />
         <Route path="/cars/mclaren" element={<McLarenBrandPage />} />

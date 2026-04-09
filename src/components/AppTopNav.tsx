@@ -22,6 +22,9 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
   /** White bar + dark links — home only. Alpine uses pink bar + light links. */
   const isLightNav = location.pathname === '/';
   const navLightChrome = isLightNav;
+  /** Cadillac brand home: white rectangular bar inset from screen edges (see header wrapper). */
+  const cadillacNavChrome = isCadillacBrandPage;
+  const navLightLinks = navLightChrome || cadillacNavChrome;
   const isAstonBrandPage = location.pathname === '/cars/aston-martin';
   const isFerrariBrandPage = location.pathname === '/cars/ferrari';
   const carsActive = location.pathname.startsWith('/cars');
@@ -29,44 +32,66 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
   const [carsDriveCycle, setCarsDriveCycle] = useState(0);
   const [carsMenuOpen, setCarsMenuOpen] = useState(false);
 
+  const carsSheetTop = cadillacNavChrome
+    ? 'calc(max(12px, env(safe-area-inset-top)) + 2.25rem - 1px)'
+    : 'calc(max(env(safe-area-inset-top), 0px) + 2.25rem - 1px)';
+  const carsBridgeTop = cadillacNavChrome
+    ? 'calc(max(12px, env(safe-area-inset-top)) + 2.25rem - 14px)'
+    : 'calc(max(env(safe-area-inset-top), 0px) + 2.25rem - 14px)';
+
   return (
     <header
       className={cn(
-        'fixed left-0 right-0 top-0 z-[100] overflow-visible border-b transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
+        'fixed left-0 right-0 top-0 z-[100] overflow-visible transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
         navLightChrome
-          ? 'border-neutral-200/90 bg-white'
-          : isAlpineBrandPage
-            ? 'border-pink-700/35 bg-pink-500/95 backdrop-blur-xl backdrop-saturate-150'
-            : isAstonBrandPage
-            ? 'border-emerald-700/35 bg-[#0f2a1d]'
-            : isFerrariBrandPage
-              ? 'border-red-950/45 bg-[#1a0608]/58 backdrop-blur-2xl backdrop-saturate-150'
-              : isRacingBullsBrandPage
-                ? 'border-blue-800/40 bg-blue-950/95 backdrop-blur-xl backdrop-saturate-150'
-                : isCadillacBrandPage ||
-                    isAudiBrandPage ||
-                    isHaasBrandPage ||
-                    isWilliamsBrandPage ||
-                    isMcLarenBrandPage ||
-                    isRedBullBrandPage
-                  ? 'border-black bg-black'
-                  : 'border-white/[0.07] bg-black/70 backdrop-blur-2xl',
+          ? 'border-b border-neutral-200/90 bg-white'
+          : cadillacNavChrome
+            ? 'flex justify-center border-transparent bg-transparent px-3 sm:px-5'
+            : isAlpineBrandPage
+              ? 'border-b border-pink-700/35 bg-pink-500/95 backdrop-blur-xl backdrop-saturate-150'
+              : isAstonBrandPage
+                ? 'border-b border-emerald-700/35 bg-[#0f2a1d]'
+                : isFerrariBrandPage
+                  ? 'border-b border-red-950/45 bg-[#1a0608]/58 backdrop-blur-2xl backdrop-saturate-150'
+                  : isRacingBullsBrandPage
+                    ? 'border-b border-blue-800/40 bg-blue-950/95 backdrop-blur-xl backdrop-saturate-150'
+                    : isAudiBrandPage ||
+                        isHaasBrandPage ||
+                        isWilliamsBrandPage ||
+                        isMcLarenBrandPage ||
+                        isRedBullBrandPage
+                      ? 'border-b border-black bg-black'
+                      : 'border-b border-white/[0.07] bg-black/70 backdrop-blur-2xl',
         visible ? 'translate-y-0' : 'pointer-events-none -translate-y-full'
       )}
       style={{
-        paddingTop: 'max(0px, env(safe-area-inset-top))',
+        paddingTop: cadillacNavChrome
+          ? 'max(12px, env(safe-area-inset-top))'
+          : 'max(0px, env(safe-area-inset-top))',
         fontFamily: 'var(--ios-font)',
       }}
     >
-      <div className="mx-auto flex h-9 max-w-[980px] items-center justify-between gap-2 px-3 sm:h-9 sm:px-5">
+      <div
+        className={cn(
+          'flex h-9 items-center gap-2 px-3 sm:h-9 sm:px-5',
+          cadillacNavChrome
+            ? 'w-fit max-w-[min(100%,calc(100vw-1.5rem))] shrink-0 justify-center rounded-none border border-neutral-200/90 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] sm:max-w-[min(100%,calc(100vw-2.5rem))] sm:gap-10 md:gap-14'
+            : 'mx-auto max-w-[980px] justify-between'
+        )}
+      >
         {/* pl-* nudges the logo right (margin on NavLink was easy to miss vs flex + justify-between) */}
-        <div className="shrink-0 pl-14 sm:pl-20 md:pl-28 lg:pl-36">
+        <div
+          className={cn(
+            'shrink-0',
+            cadillacNavChrome ? 'pl-0' : 'pl-14 sm:pl-20 md:pl-28 lg:pl-36'
+          )}
+        >
           <NavLink
             to="/"
             end
             className={cn(
               'flex items-center transition-opacity',
-              navLightChrome ? 'hover:opacity-80' : 'hover:opacity-90'
+              navLightLinks ? 'hover:opacity-80' : 'hover:opacity-90'
             )}
             aria-label="F1 Track home"
           >
@@ -82,7 +107,10 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
         </div>
 
         <nav
-          className="flex min-w-0 flex-1 items-center justify-end gap-0.5 overflow-x-visible overflow-y-visible sm:justify-center sm:gap-6 md:gap-8"
+          className={cn(
+            'flex min-w-0 items-center gap-0.5 overflow-x-visible overflow-y-visible sm:gap-6 md:gap-8',
+            cadillacNavChrome ? 'shrink-0 justify-center' : 'flex-1 justify-end sm:justify-center'
+          )}
           aria-label="Main"
         >
           <NavLink
@@ -91,7 +119,7 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
               cn(
                 linkBase,
                 'shrink-0',
-                navLightChrome
+                navLightLinks
                   ? isActive
                     ? 'text-neutral-900'
                     : 'text-neutral-500 hover:text-neutral-900'
@@ -109,7 +137,7 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
               cn(
                 linkBase,
                 'shrink-0',
-                navLightChrome
+                navLightLinks
                   ? isActive
                     ? 'text-neutral-900'
                     : 'text-neutral-500 hover:text-neutral-900'
@@ -140,7 +168,7 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
               className={cn(
                 linkBase,
                 'relative z-[230] block',
-                navLightChrome
+                navLightLinks
                   ? carsActive
                     ? 'text-neutral-900'
                     : 'text-neutral-500 hover:text-neutral-900'
@@ -159,7 +187,7 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
                 carsMenuOpen && 'sm:pointer-events-auto'
               )}
               style={{
-                top: 'calc(max(env(safe-area-inset-top), 0px) + 2.25rem - 14px)',
+                top: carsBridgeTop,
               }}
               aria-hidden
             />
@@ -169,7 +197,7 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
                 'pointer-events-none fixed inset-x-0 z-[220] hidden origin-top',
                 'h-[min(14vw,200px)] w-full max-h-[min(220px,26vh)] min-h-[110px] sm:h-[min(18vw,240px)] sm:min-h-[128px]',
                 'overflow-hidden rounded-none border-b',
-                navLightChrome
+                navLightLinks
                   ? 'border-white/30 bg-white/[0.1] shadow-[0_12px_44px_-18px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.4)] backdrop-blur-3xl backdrop-saturate-[1.35]'
                   : 'border-white/[0.14] bg-black/[0.18] shadow-[0_18px_50px_-14px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl backdrop-saturate-150',
                 '-translate-y-full opacity-0',
@@ -181,14 +209,14 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
                 carsMenuOpen && 'pointer-events-auto translate-y-0 opacity-100'
               )}
               style={{
-                top: 'calc(max(env(safe-area-inset-top), 0px) + 2.25rem - 1px)',
+                top: carsSheetTop,
               }}
               role="presentation"
               aria-hidden
             >
               <CarsNavHoverPreview
                 key={carsDriveCycle}
-                variant={navLightChrome ? 'light' : 'dark'}
+                variant={navLightLinks ? 'light' : 'dark'}
                 onNavigate={() => setCarsMenuOpen(false)}
               />
             </div>
@@ -197,7 +225,7 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
           <span
             className={cn(
               'shrink-0 px-1.5 py-0.5 text-[10.5px] font-normal tracking-wide sm:text-[11px]',
-              navLightChrome ? 'text-neutral-400' : 'text-white/22'
+              navLightLinks ? 'text-neutral-400' : 'text-white/22'
             )}
             aria-disabled
           >

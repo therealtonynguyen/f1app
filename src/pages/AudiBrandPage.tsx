@@ -45,14 +45,64 @@ const AUDI_WORLDS_FIRST_SPEEDCAFE_IMG =
 const AUDI_WORLDS_FIRST_FONT =
   '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif';
 
-/** Sticky black — Nico’s helmet from left, then Gabriel’s from right */
-const AUDI_HELMETS_SCROLL_VH = 380;
+/** Sticky — duo photo; driver names fade in centered */
+const AUDI_DRIVERS_DUO_SCROLL_VH = 340;
 
-const AUDI_HELMET_NICO_IMG =
-  'https://www.f1-fansite.com/wp-content/uploads/2012/07/Nico-Hulkenberg-Helmet-Design.png';
+const AUDI_DRIVERS_DUO_IMG =
+  'https://cdn-1.motorsport.com/static/img/news/711491.webp';
 
-const AUDI_HELMET_GABRIEL_IMG =
-  'https://www.bellcollectibles.com/wp-content/uploads/2025/09/GABRIEL-BORTOLETO-2025-Mini-1.png';
+/** Miami — black block, track rises from bottom, countdown at top */
+const AUDI_MIAMI_TRACK_SCROLL_VH = 360;
+
+const AUDI_MIAMI_TRACK_IMG =
+  'https://www.cadillacf1team.com/ctfassets/images/123jt18lixwc/2mBUUhnfOWQ0u07Wiqnl6F/f5e9b86abaf05c1eca665aa1e0f69a28/19.Miami_International_Autodrome_-_USA.001.png?fm=avif&w=1920';
+
+const MIAMI_GP_RACE_DATE = 'May 3, 2026';
+
+/** Miami GP 2026 — race start (America/New_York) */
+const MIAMI_GP_RACE_START = new Date('2026-05-03T16:00:00-04:00');
+
+/** Partner names — aligned with Audi Revolut F1 Team published partners (audif1.com/en/partners). */
+const AUDI_SPONSORS: readonly string[] = [
+  'Revolut',
+  'Visit Qatar',
+  'adidas',
+  'Aleph',
+  'bp',
+  'Camozzi',
+  'Castrol',
+  'ElevenLabs',
+  'Extreme Networks',
+  'Gillette',
+  'Glasurit',
+  'Hyatt',
+  'ic! berlin',
+  'Libertex',
+  'Mammoet',
+  'Nexo',
+  'NinjaOne',
+  'Paulaner',
+  'Perk',
+  'Piquadro',
+] as const;
+
+/** Scroll length for sticky white partners block */
+const AUDI_SPONSORS_SCROLL_VH = 320;
+
+/** Vertical position of the “Partners” label in the viewport (px; negative = higher) */
+const AUDI_PARTNERS_LABEL_NUDGE_PX = -104;
+
+/** Extra downward offset for the sponsor list only (px), below the label */
+const AUDI_PARTNERS_LIST_OFFSET_PX = 72;
+
+function miamiGpCountdownParts(msLeft: number): { d: number; h: number; m: number; s: number } {
+  const totalSec = Math.max(0, Math.floor(msLeft / 1000));
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return { d, h, m, s };
+}
 
 type AudiGalleryItem =
   | { kind: 'single'; src: string }
@@ -146,17 +196,27 @@ export function AudiBrandPage() {
   const fadeTrackRef = useRef<HTMLDivElement>(null);
   const headlineTrackRef = useRef<HTMLDivElement>(null);
   const worldsFirstTrackRef = useRef<HTMLDivElement>(null);
-  const helmetsTrackRef = useRef<HTMLDivElement>(null);
+  const driversDuoTrackRef = useRef<HTMLDivElement>(null);
+  const miamiTrackRef = useRef<HTMLDivElement>(null);
+  const sponsorsTrackRef = useRef<HTMLElement>(null);
   const [ringProgress, setRingProgress] = useState(0);
   const [carProgress, setCarProgress] = useState(0);
   const [fadeProgress, setFadeProgress] = useState(0);
   const [headlineProgress, setHeadlineProgress] = useState(0);
   const [worldsFirstProgress, setWorldsFirstProgress] = useState(0);
-  const [helmetsProgress, setHelmetsProgress] = useState(0);
+  const [driversDuoProgress, setDriversDuoProgress] = useState(0);
+  const [miamiTrackProgress, setMiamiTrackProgress] = useState(0);
+  const [sponsorsProgress, setSponsorsProgress] = useState(0);
+  const [countdownNow, setCountdownNow] = useState(() => Date.now());
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
     setReduceMotion(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setCountdownNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, []);
 
   const tick = useCallback(() => {
@@ -198,11 +258,25 @@ export function AudiBrandPage() {
       setWorldsFirstProgress(clamp01((main.scrollTop - top) / range));
     }
 
-    const helmetsTrack = helmetsTrackRef.current;
-    if (helmetsTrack) {
-      const top = offsetTopToAncestor(helmetsTrack, main);
-      const range = Math.max(1, helmetsTrack.offsetHeight - main.clientHeight);
-      setHelmetsProgress(clamp01((main.scrollTop - top) / range));
+    const driversDuoTrack = driversDuoTrackRef.current;
+    if (driversDuoTrack) {
+      const top = offsetTopToAncestor(driversDuoTrack, main);
+      const range = Math.max(1, driversDuoTrack.offsetHeight - main.clientHeight);
+      setDriversDuoProgress(clamp01((main.scrollTop - top) / range));
+    }
+
+    const miamiTrack = miamiTrackRef.current;
+    if (miamiTrack) {
+      const top = offsetTopToAncestor(miamiTrack, main);
+      const range = Math.max(1, miamiTrack.offsetHeight - main.clientHeight);
+      setMiamiTrackProgress(clamp01((main.scrollTop - top) / range));
+    }
+
+    const sponsorsTrack = sponsorsTrackRef.current;
+    if (sponsorsTrack) {
+      const top = offsetTopToAncestor(sponsorsTrack, main);
+      const range = Math.max(1, sponsorsTrack.offsetHeight - main.clientHeight);
+      setSponsorsProgress(clamp01((main.scrollTop - top) / range));
     }
   }, [mainScrollRef]);
 
@@ -219,7 +293,9 @@ export function AudiBrandPage() {
       if (fadeTrackRef.current) ro.observe(fadeTrackRef.current);
       if (headlineTrackRef.current) ro.observe(headlineTrackRef.current);
       if (worldsFirstTrackRef.current) ro.observe(worldsFirstTrackRef.current);
-      if (helmetsTrackRef.current) ro.observe(helmetsTrackRef.current);
+      if (driversDuoTrackRef.current) ro.observe(driversDuoTrackRef.current);
+      if (miamiTrackRef.current) ro.observe(miamiTrackRef.current);
+      if (sponsorsTrackRef.current) ro.observe(sponsorsTrackRef.current);
     }
     return () => {
       main.removeEventListener('scroll', tick);
@@ -246,13 +322,26 @@ export function AudiBrandPage() {
   const worldsFirstPhotoReveal = reduceMotion ? 1 : easeOutCubic(clamp01((wf - 0.08) / 0.28));
   const worldsFirstBlackVeil = 1 - worldsFirstPhotoReveal;
 
-  const hel = helmetsProgress;
-  /** Nico from left, then Gabriel from right (later window) */
-  const helmetNicoT = reduceMotion ? 1 : easeOutCubic(clamp01((hel - 0.05) / 0.3));
-  const helmetGabT = reduceMotion ? 1 : easeOutCubic(clamp01((hel - 0.4) / 0.32));
-  /** vw offset from viewport center: negative = left, positive = right */
-  const helmetNicoXvw = -88 + helmetNicoT * 72;
-  const helmetGabXvw = 88 - helmetGabT * 72;
+  const dd = driversDuoProgress;
+  const driversNameNicoOp = reduceMotion ? 1 : easeOutCubic(clamp01((dd - 0.1) / 0.24));
+  /** “&” between Nico and Gabriel in time — fades before Gabriel’s line */
+  const driversAmpersandOp = reduceMotion ? 1 : easeOutCubic(clamp01((dd - 0.2) / 0.22));
+  const driversNameGabrielOp = reduceMotion ? 1 : easeOutCubic(clamp01((dd - 0.46) / 0.28));
+
+  const rp = miamiTrackProgress;
+  const miamiTrackSlide = reduceMotion ? 1 : easeOutCubic(clamp01(rp / 0.48));
+  const miamiTrackYvh = reduceMotion ? 0 : (1 - miamiTrackSlide) * 52;
+  const miamiCountdownFade = reduceMotion ? 1 : easeOutCubic(clamp01((rp - 0.1) / 0.34));
+
+  const sp = sponsorsProgress;
+  const sponsorsReveal = reduceMotion ? 1 : easeOutCubic(clamp01((sp - 0.06) / 0.38));
+  const sponsorsLift = reduceMotion ? 0 : (1 - easeOutCubic(clamp01((sp - 0.06) / 0.38))) * 18;
+
+  const countdownParts = miamiGpCountdownParts(MIAMI_GP_RACE_START.getTime() - countdownNow);
+  const cdD = countdownParts.d.toString();
+  const cdH = countdownParts.h.toString().padStart(2, '0');
+  const cdM = countdownParts.m.toString().padStart(2, '0');
+  const cdS = countdownParts.s.toString().padStart(2, '0');
 
   return (
     <div
@@ -523,65 +612,248 @@ export function AudiBrandPage() {
         </div>
       )}
 
-      {/* Sticky black — helmets slide in from left / right */}
+      {/* Sticky — duo photo; names fade in centered */}
       {reduceMotion ? (
-        <section
-          className="relative z-10 flex w-full justify-center bg-black px-4 py-16"
-          aria-label="Driver helmets"
-        >
-          <div className="flex max-w-4xl flex-wrap items-center justify-center gap-10 sm:gap-14">
+        <section className="relative z-10 w-full bg-black" aria-label="Audi drivers">
+          <div className="relative h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
             <img
-              src={AUDI_HELMET_NICO_IMG}
+              src={AUDI_DRIVERS_DUO_IMG}
               alt=""
-              className="h-auto max-h-[min(42dvh,320px)] w-auto max-w-[min(46vw,280px)] object-contain"
+              className="absolute inset-0 h-full w-full object-cover object-center"
               loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
             />
-            <img
-              src={AUDI_HELMET_GABRIEL_IMG}
-              alt=""
-              className="h-auto max-h-[min(42dvh,320px)] w-auto max-w-[min(46vw,280px)] object-contain"
-              loading="lazy"
-              decoding="async"
-              referrerPolicy="no-referrer"
-            />
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0 px-6 text-center">
+              <div className="absolute inset-0 z-0 flex items-center justify-center" aria-hidden>
+                <span
+                  className="select-none text-[clamp(2.25rem,11vw,6.5rem)] font-semibold text-white/35 [text-shadow:0_2px_32px_rgba(0,0,0,0.55)]"
+                  style={{ fontFamily: AUDI_WORLDS_FIRST_FONT }}
+                >
+                  &
+                </span>
+              </div>
+              <p
+                className="relative z-10 text-[clamp(1.15rem,4vw,1.9rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_20px_rgba(0,0,0,0.82)]"
+                style={{ fontFamily: AUDI_WORLDS_FIRST_FONT }}
+              >
+                Nico Hulkenberg
+              </p>
+              <p
+                className="relative z-10 -mt-1 text-[clamp(1.15rem,4vw,1.9rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_20px_rgba(0,0,0,0.82)]"
+                style={{ fontFamily: AUDI_WORLDS_FIRST_FONT }}
+              >
+                Gabriel Bortoleto
+              </p>
+            </div>
           </div>
         </section>
       ) : (
         <div
-          ref={helmetsTrackRef}
+          ref={driversDuoTrackRef}
           className="relative w-full bg-black"
-          style={{ minHeight: `${AUDI_HELMETS_SCROLL_VH}vh` }}
+          style={{ minHeight: `${AUDI_DRIVERS_DUO_SCROLL_VH}vh` }}
         >
           <div className="sticky top-0 z-10 flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black">
             <img
-              src={AUDI_HELMET_NICO_IMG}
+              src={AUDI_DRIVERS_DUO_IMG}
               alt=""
-              className="pointer-events-none absolute left-1/2 top-1/2 h-auto max-h-[min(42dvh,360px)] w-auto max-w-[min(48vw,300px)] select-none object-contain"
-              style={{
-                opacity: helmetNicoT,
-                transform: `translate3d(calc(-50% + ${helmetNicoXvw}vw), -50%, 0)`,
-              }}
+              className="absolute inset-0 h-full w-full object-cover object-center"
               loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
             />
-            <img
-              src={AUDI_HELMET_GABRIEL_IMG}
-              alt=""
-              className="pointer-events-none absolute left-1/2 top-1/2 z-[1] h-auto max-h-[min(42dvh,360px)] w-auto max-w-[min(48vw,300px)] select-none object-contain"
-              style={{
-                opacity: helmetGabT,
-                transform: `translate3d(calc(-50% + ${helmetGabXvw}vw), -50%, 0)`,
-              }}
-              loading="lazy"
-              decoding="async"
-              referrerPolicy="no-referrer"
-            />
+            <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-0 px-6 text-center">
+              <div className="absolute inset-0 z-0 flex items-center justify-center" aria-hidden>
+                <span
+                  className="select-none text-[clamp(2.25rem,11vw,6.5rem)] font-semibold text-white/35 [text-shadow:0_2px_32px_rgba(0,0,0,0.55)]"
+                  style={{ fontFamily: AUDI_WORLDS_FIRST_FONT, opacity: driversAmpersandOp }}
+                >
+                  &
+                </span>
+              </div>
+              <p
+                className="relative z-10 text-[clamp(1.15rem,4vw,1.95rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_22px_rgba(0,0,0,0.85)]"
+                style={{
+                  fontFamily: AUDI_WORLDS_FIRST_FONT,
+                  opacity: driversNameNicoOp,
+                }}
+              >
+                Nico Hulkenberg
+              </p>
+              <p
+                className="relative z-10 -mt-1 text-[clamp(1.15rem,4vw,1.95rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_22px_rgba(0,0,0,0.85)]"
+                style={{
+                  fontFamily: AUDI_WORLDS_FIRST_FONT,
+                  opacity: driversNameGabrielOp,
+                }}
+              >
+                Gabriel Bortoleto
+              </p>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Miami — black block; track from bottom; race-start countdown at top */}
+      {reduceMotion ? (
+        <section
+          ref={miamiTrackRef}
+          className="relative w-full bg-black"
+          style={{ minHeight: `${AUDI_MIAMI_TRACK_SCROLL_VH}vh` }}
+          aria-label="Miami Grand Prix"
+        >
+          <div className="sticky top-0 flex h-[100dvh] w-full flex-col overflow-hidden bg-black">
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 z-20 flex w-full flex-col items-stretch pt-[max(26vh,calc(2rem+env(safe-area-inset-top)))]"
+              style={{ fontFamily: 'var(--ios-font)' }}
+              aria-live="polite"
+            >
+              <div className="flex flex-col items-center px-4 text-center sm:px-8">
+                <p className="text-[clamp(10px,2.5vw,12px)] font-bold uppercase tracking-[0.28em] text-white/70">
+                  Race start
+                </p>
+                <p className="mt-5 text-[clamp(11px,2.8vw,13px)] font-medium tabular-nums text-white/45">
+                  {MIAMI_GP_RACE_DATE}
+                </p>
+              </div>
+              <div
+                className="mt-7 flex w-full items-end justify-between gap-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-white"
+                aria-label={`${countdownParts.d} days, ${countdownParts.h} hours, ${countdownParts.m} minutes, ${countdownParts.s} seconds until Miami Grand Prix`}
+              >
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[clamp(1.35rem,7vw,3rem)] font-bold tabular-nums leading-none">{cdD}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">days</span>
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[clamp(1.35rem,7vw,3rem)] font-bold tabular-nums leading-none">{cdH}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">hr</span>
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[clamp(1.35rem,7vw,3rem)] font-bold tabular-nums leading-none">{cdM}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">min</span>
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[clamp(1.35rem,7vw,3rem)] font-bold tabular-nums leading-none">{cdS}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">sec</span>
+                </div>
+              </div>
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-28 sm:px-8 sm:pb-10">
+              <img
+                src={AUDI_MIAMI_TRACK_IMG}
+                alt="Miami International Autodrome track layout"
+                className="h-auto max-h-[min(82dvh,960px)] w-full max-w-[min(98vw,1400px)] object-contain object-bottom"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </div>
+        </section>
+      ) : (
+        <div
+          ref={miamiTrackRef}
+          className="relative w-full bg-black"
+          style={{ minHeight: `${AUDI_MIAMI_TRACK_SCROLL_VH}vh` }}
+        >
+          <div className="sticky top-0 flex h-[100dvh] w-full flex-col overflow-hidden bg-black">
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 z-20 flex w-full flex-col items-stretch pt-[max(26vh,calc(2rem+env(safe-area-inset-top)))]"
+              style={{
+                fontFamily: 'var(--ios-font)',
+                opacity: miamiCountdownFade,
+              }}
+              aria-live="polite"
+            >
+              <div className="flex flex-col items-center px-4 text-center sm:px-8">
+                <p className="text-[clamp(10px,2.5vw,12px)] font-bold uppercase tracking-[0.28em] text-white/70">
+                  Race start
+                </p>
+                <p className="mt-5 text-[clamp(11px,2.8vw,13px)] font-medium tabular-nums text-white/45">
+                  {MIAMI_GP_RACE_DATE}
+                </p>
+              </div>
+              <div
+                className="mt-7 flex w-full items-end justify-between gap-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-white"
+                aria-label={`${countdownParts.d} days, ${countdownParts.h} hours, ${countdownParts.m} minutes, ${countdownParts.s} seconds until Miami Grand Prix`}
+              >
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[clamp(1.35rem,7vw,3rem)] font-bold tabular-nums leading-none">{cdD}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">days</span>
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[clamp(1.35rem,7vw,3rem)] font-bold tabular-nums leading-none">{cdH}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">hr</span>
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[clamp(1.35rem,7vw,3rem)] font-bold tabular-nums leading-none">{cdM}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">min</span>
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[clamp(1.35rem,7vw,3rem)] font-bold tabular-nums leading-none">{cdS}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">sec</span>
+                </div>
+              </div>
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-28 sm:px-8 sm:pb-10">
+              <img
+                src={AUDI_MIAMI_TRACK_IMG}
+                alt="Miami International Autodrome track layout"
+                className="h-auto max-h-[min(82dvh,960px)] w-full max-w-[min(98vw,1400px)] object-contain object-bottom"
+                style={{
+                  transform: `translate3d(0, ${miamiTrackYvh}vh, 0)`,
+                  willChange: 'transform',
+                }}
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* White partners block — scroll reveals list */}
+      <section
+        ref={sponsorsTrackRef}
+        className="relative w-full border-t border-neutral-200 bg-white text-neutral-900"
+        style={{ minHeight: `${AUDI_SPONSORS_SCROLL_VH}vh` }}
+        aria-labelledby="audi-partners-heading"
+      >
+        <div className="sticky top-0 flex h-[100dvh] w-full flex-col items-center justify-center px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
+          <div className="flex w-full max-w-3xl flex-col items-center self-center text-center">
+            <h2
+              id="audi-partners-heading"
+              className="w-full text-center text-[clamp(11px,2.6vw,13px)] font-bold uppercase tracking-[0.28em] text-neutral-500"
+              style={{
+                opacity: sponsorsReveal,
+                transform: `translate3d(0, ${AUDI_PARTNERS_LABEL_NUDGE_PX}px, 0)`,
+                willChange: reduceMotion ? undefined : 'opacity, transform',
+              }}
+            >
+              Partners
+            </h2>
+            <ul
+              className="mt-10 mx-auto flex w-full max-w-3xl flex-wrap justify-center gap-x-6 gap-y-4 sm:gap-x-8 sm:gap-y-5"
+              style={{
+                opacity: sponsorsReveal,
+                transform: `translate3d(0, ${sponsorsLift + AUDI_PARTNERS_LABEL_NUDGE_PX + AUDI_PARTNERS_LIST_OFFSET_PX}px, 0)`,
+                willChange: reduceMotion ? undefined : 'opacity, transform',
+              }}
+            >
+              {AUDI_SPONSORS.map((name) => (
+                <li
+                  key={name}
+                  className="text-center text-[clamp(14px,3.4vw,17px)] font-medium tracking-tight text-neutral-800"
+                >
+                  {name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
 
       <div className="h-[max(28px,env(safe-area-inset-bottom))] bg-black" aria-hidden />
     </div>

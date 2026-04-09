@@ -3,8 +3,12 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { MainShellOutletContext } from '@/layouts/MainShellLayout';
 
-/** Cadillac F1 — official team imagery (cadillacf1team.com) */
+/** Hero behind “Born in Detroit / Built for the World” — FOM */
 const CADILLAC_HERO =
+  'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/Cadillac/CadillacF1Team_2202_HiResEdit.webp';
+
+/** Former hero — now first image in the horizontal strip */
+const CADILLAC_STRIP_FIRST_IMG =
   'https://www.cadillacf1team.com/ctfassets/images/123jt18lixwc/6Sq0yL24jhWgKadGZKr5X3/20bb8d38f0a79de90be4de4a2477b53f/Image_Module_5.jpg?fm=avif&w=1920';
 
 const CADILLAC_MODULE_4 =
@@ -13,7 +17,7 @@ const CADILLAC_MODULE_4 =
 /** Horizontal strip — left scroll as you move down the page */
 const CADILLAC_STRIP_IMAGES: readonly { src: string; alt: string }[] = [
   {
-    src: 'https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/Cadillac/CadillacF1Team_2202_HiResEdit.webp',
+    src: CADILLAC_STRIP_FIRST_IMG,
     alt: 'Cadillac Formula 1 car',
   },
   { src: CADILLAC_MODULE_4, alt: 'Cadillac F1' },
@@ -74,6 +78,9 @@ const WHITE_SCROLL_VH = 480;
 /** Scroll length for driver-name reveal + sliding card */
 const DRIVERS_SCROLL_VH = 260;
 const RACE_CARD_SCROLL_VH = 300;
+
+/** Sticky full-screen sponsors block — scroll length before next section */
+const SPONSORS_SCROLL_VH = 140;
 
 /** Miami International Autodrome — track map (cadillacf1team.com) */
 const CADILLAC_SLIDE_MIAMI_IMG =
@@ -260,7 +267,7 @@ export function CadillacBrandPage() {
               aria-hidden
             />
 
-            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center sm:px-10">
+            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center sm:px-10 -translate-y-32 sm:-translate-y-44 md:-translate-y-56">
               <h1 className="max-w-[min(100%,40rem)] text-[clamp(1.75rem,5.5vw,3.25rem)] font-light leading-[1.12] tracking-[-0.02em] text-white [text-shadow:0_2px_40px_rgba(0,0,0,0.5)]">
                 <span className="block">Born in Detroit</span>
                 <span className="mt-[0.35em] block">Built for the World</span>
@@ -341,7 +348,7 @@ export function CadillacBrandPage() {
         </div>
       </div>
 
-      {/* Pérez & Bottas — full-bleed photo; names rise in beside them as you scroll */}
+      {/* Pérez & Bottas — full-bleed photo; names on solid black labels (no overlay gradient) */}
       <div
         ref={driversTrackRef}
         className="relative w-full bg-black"
@@ -357,15 +364,11 @@ export function CadillacBrandPage() {
             referrerPolicy="no-referrer"
           />
           <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30"
-            aria-hidden
-          />
-          <div
             className="absolute bottom-[10%] left-0 right-0 z-10 flex items-end justify-between gap-4 px-5 sm:bottom-[12%] sm:px-12 md:px-20"
             style={{ fontFamily: 'var(--ios-font)' }}
           >
             <p
-              className="max-w-[44%] text-left text-[clamp(0.95rem,2.8vw,1.35rem)] font-semibold uppercase tracking-[0.12em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.75)] sm:max-w-none sm:text-[clamp(1.1rem,2.2vw,1.5rem)] sm:tracking-[0.18em]"
+              className="w-fit max-w-[min(92vw,22rem)] text-left text-[clamp(0.95rem,2.8vw,1.35rem)] font-bold uppercase tracking-[0.12em] text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.55),0_2px_14px_rgba(0,0,0,0.4)] sm:text-[clamp(1.1rem,2.2vw,1.5rem)] sm:tracking-[0.18em]"
               style={{
                 opacity: nameOpacity,
                 transform: `translate3d(0,${nameY}px,0)`,
@@ -374,7 +377,7 @@ export function CadillacBrandPage() {
               Valtteri Bottas
             </p>
             <p
-              className="max-w-[44%] text-right text-[clamp(0.95rem,2.8vw,1.35rem)] font-semibold uppercase tracking-[0.12em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.75)] sm:max-w-none sm:text-[clamp(1.1rem,2.2vw,1.5rem)] sm:tracking-[0.18em]"
+              className="ml-auto w-fit max-w-[min(92vw,22rem)] text-right text-[clamp(0.95rem,2.8vw,1.35rem)] font-bold uppercase tracking-[0.12em] text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.55),0_2px_14px_rgba(0,0,0,0.4)] sm:text-[clamp(1.1rem,2.2vw,1.5rem)] sm:tracking-[0.18em]"
               style={{
                 opacity: nameOpacity,
                 transform: `translate3d(0,${nameY}px,0)`,
@@ -396,7 +399,7 @@ export function CadillacBrandPage() {
           <div
             className="absolute left-0 top-1/2 z-10 w-[min(100%,min(92vw,1600px))] min-w-[min(100%,min(72vw,320px))] overflow-hidden rounded-r-2xl bg-white"
             style={{
-              transform: `translate3d(${(1 - raceSlide) * -100}%, -50%, 0)`,
+              transform: `translate3d(calc(${(1 - raceSlide) * -100}% - 3rem), -50%, 0)`,
               willChange: 'transform',
             }}
           >
@@ -410,7 +413,7 @@ export function CadillacBrandPage() {
             />
           </div>
           <div
-            className="pointer-events-none absolute right-0 top-1/2 z-20 max-w-[min(52%,20rem)] px-5 text-right sm:max-w-md sm:px-10 md:pr-16"
+            className="pointer-events-none absolute right-6 top-1/2 z-20 max-w-[min(52%,20rem)] px-5 text-right sm:right-8 sm:max-w-md sm:px-8 md:right-12 md:pr-16"
             style={{
               fontFamily: 'var(--ios-font)',
               opacity: miamiLabelFade,
@@ -447,7 +450,7 @@ export function CadillacBrandPage() {
                   {cdD}
                 </span>
               </div>
-              <span className="mt-2 shrink-0 text-[clamp(8px,2.4vw,12px)] font-bold uppercase tracking-[0.18em] text-black sm:tracking-[0.22em]">
+              <span className="mt-0 shrink-0 -translate-y-8 text-[clamp(8px,2.4vw,12px)] font-bold uppercase tracking-[0.18em] text-black sm:-translate-y-10 sm:tracking-[0.22em]">
                 Days
               </span>
             </div>
@@ -463,7 +466,7 @@ export function CadillacBrandPage() {
                   {cdH}
                 </span>
               </div>
-              <span className="mt-2 shrink-0 text-[clamp(8px,2.4vw,12px)] font-bold uppercase tracking-[0.18em] text-black sm:tracking-[0.22em]">
+              <span className="mt-0 shrink-0 -translate-y-8 text-[clamp(8px,2.4vw,12px)] font-bold uppercase tracking-[0.18em] text-black sm:-translate-y-10 sm:tracking-[0.22em]">
                 Hours
               </span>
             </div>
@@ -479,7 +482,7 @@ export function CadillacBrandPage() {
                   {cdM}
                 </span>
               </div>
-              <span className="mt-2 shrink-0 text-[clamp(8px,2.4vw,12px)] font-bold uppercase tracking-[0.18em] text-black sm:tracking-[0.22em]">
+              <span className="mt-0 shrink-0 -translate-y-8 text-[clamp(8px,2.4vw,12px)] font-bold uppercase tracking-[0.18em] text-black sm:-translate-y-10 sm:tracking-[0.22em]">
                 Minutes
               </span>
             </div>
@@ -495,7 +498,7 @@ export function CadillacBrandPage() {
                   {cdS}
                 </span>
               </div>
-              <span className="mt-2 shrink-0 text-[clamp(8px,2.4vw,12px)] font-bold uppercase tracking-[0.18em] text-black sm:tracking-[0.22em]">
+              <span className="mt-0 shrink-0 -translate-y-8 text-[clamp(8px,2.4vw,12px)] font-bold uppercase tracking-[0.18em] text-black sm:-translate-y-10 sm:tracking-[0.22em]">
                 Seconds
               </span>
             </div>
@@ -516,24 +519,35 @@ export function CadillacBrandPage() {
         </div>
       </section>
 
-      <section
-        className="relative z-10 border-t border-neutral-900 bg-black px-5 py-14 sm:px-10 sm:py-16"
-        style={{ fontFamily: 'var(--ios-font)' }}
+      <div
+        className="relative w-full"
+        style={{ minHeight: reduceMotion ? undefined : `${SPONSORS_SCROLL_VH}vh` }}
       >
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-neutral-500">Sponsored by</p>
-          <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:gap-x-8 sm:gap-y-4">
-            {CADILLAC_SPONSORS.map((name) => (
-              <li
-                key={name}
-                className="text-[13px] font-semibold tracking-wide text-neutral-100 sm:text-[14px]"
-              >
-                {name}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+        <section
+          className={cn(
+            'relative z-10 flex w-full flex-col items-center justify-center border-t border-neutral-800 bg-black px-6 py-16 sm:px-10 sm:py-20',
+            reduceMotion ? 'min-h-[100dvh]' : 'sticky top-0 z-10 min-h-[100dvh]'
+          )}
+          style={{ fontFamily: 'var(--ios-font)' }}
+          aria-label="Cadillac F1 partners"
+        >
+          <div className="flex w-full max-w-[min(100%,96rem)] flex-col items-center justify-center px-3 sm:px-6">
+            <p className="-translate-y-4 text-[11px] font-semibold uppercase tracking-[0.32em] text-neutral-500 sm:-translate-y-5">
+              Sponsored by
+            </p>
+            <ul className="mt-5 grid w-full grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] justify-items-center gap-x-6 gap-y-10 text-center sm:mt-6 sm:gap-x-10 lg:gap-x-14">
+              {CADILLAC_SPONSORS.map((name) => (
+                <li
+                  key={name}
+                  className="w-full max-w-[18rem] px-1 text-[13px] font-semibold tracking-wide text-neutral-100 sm:text-[14px]"
+                >
+                  {name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      </div>
 
       <section
         className="relative z-10 border-t border-neutral-200 bg-white px-5 py-14 sm:px-10 sm:py-20"
