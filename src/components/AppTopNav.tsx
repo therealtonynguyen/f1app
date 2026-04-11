@@ -73,10 +73,10 @@ export function AppTopNav({ visible = true }: { visible?: boolean }) {
     >
       <div
         className={cn(
-          'flex h-9 items-center gap-2 px-3 sm:h-9 sm:px-5',
+          'flex h-9 items-center gap-2 sm:h-9',
           cadillacNavChrome
-            ? 'w-fit max-w-[min(100%,calc(100vw-1.5rem))] shrink-0 justify-center rounded-none border border-neutral-200/90 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] sm:max-w-[min(100%,calc(100vw-2.5rem))] sm:gap-10 md:gap-14'
-            : 'mx-auto max-w-[980px] justify-between'
+            ? 'w-fit max-w-[min(100%,calc(100vw-1.5rem))] shrink-0 justify-center rounded-none border border-neutral-200/90 bg-white px-4 shadow-[0_1px_2px_rgba(0,0,0,0.06)] sm:max-w-[min(100%,calc(100vw-2.5rem))] sm:gap-10 sm:px-6 md:gap-14'
+            : 'mx-auto max-w-[980px] justify-between px-3 sm:px-5'
         )}
       >
         {/* pl-* nudges the logo right (margin on NavLink was easy to miss vs flex + justify-between) */}

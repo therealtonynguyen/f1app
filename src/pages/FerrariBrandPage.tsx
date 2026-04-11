@@ -16,6 +16,23 @@ const HOLD = 0.2;
 /** Tall scroll track for sticky black + gold “SF-26” line */
 const SF26_OUTRO_SCROLL_VH = 300;
 
+/** Scroll after SF-26: rear studio still fades in while lifting from the bottom */
+const REAR_STILL_SCROLL_VH = 320;
+const REAR_STILL_IMG =
+  'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/Ferrari/F678_still_f06_16_9_v10.webp';
+
+/** Gallery — main left, two stacked on the right */
+const GALLERY_MAIN =
+  'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/Ferrari/F678_still_f09_16_9_v10.webp';
+const GALLERY_STACK_TOP =
+  'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/Ferrari/F678_still_f08_16_9_v10.webp';
+const GALLERY_STACK_BOTTOM =
+  'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/fom-website/2026/Ferrari/G_V027BWQAASNgK.webp';
+
+/** Twin SF-26 — Amalgam studio row */
+const FERRARI_DUAL_ROW_IMG =
+  'https://www.amalgamcollection.com/cdn/shop/files/SF-26_Row1_2_de814a69-f033-4f7a-84e7-5e212a9f085e_4000x2677_crop_center.jpg?v=1775732058';
+
 /** Luxury serif stack — Cormorant Garamond is the closest common web pairing to Gucci’s editorial serif */
 const GUCCI_LIKE_SERIF = '"Cormorant Garamond", "Times New Roman", Times, serif';
 
@@ -47,9 +64,11 @@ export function FerrariBrandPage() {
   const { mainScrollRef } = useOutletContext<MainShellOutletContext>();
   const scrollParentRef = useRef<HTMLDivElement>(null);
   const sf26TrackRef = useRef<HTMLDivElement>(null);
+  const rearStillTrackRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef(0);
   const [progress, setProgress] = useState(0);
   const [sf26Progress, setSf26Progress] = useState(0);
+  const [rearStillProgress, setRearStillProgress] = useState(0);
   const [horseFadeIn, setHorseFadeIn] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -81,6 +100,13 @@ export function FerrariBrandPage() {
       const range = Math.max(1, sf26.offsetHeight - m.clientHeight);
       setSf26Progress(clamp01((m.scrollTop - top) / range));
     }
+
+    const rear = rearStillTrackRef.current;
+    if (rear) {
+      const top = offsetTopToAncestor(rear, m);
+      const range = Math.max(1, rear.offsetHeight - m.clientHeight);
+      setRearStillProgress(clamp01((m.scrollTop - top) / range));
+    }
   }, [mainScrollRef]);
 
   useLayoutEffect(() => {
@@ -105,6 +131,8 @@ export function FerrariBrandPage() {
     const rafObserveSf26 = requestAnimationFrame(() => {
       const sf = sf26TrackRef.current;
       if (sf) ro.observe(sf);
+      const rear = rearStillTrackRef.current;
+      if (rear) ro.observe(rear);
     });
     return () => {
       cancelAnimationFrame(raf);
@@ -121,6 +149,12 @@ export function FerrariBrandPage() {
   const photoOpacity = 1 - t;
 
   const sf26TextOpacity = reduceMotion ? 1 : easeOutCubic(clamp01((sf26Progress - 0.06) / 0.55));
+
+  /** After SF-26: fade in + ease up from below (long, slow range). */
+  const rearRaw = clamp01((rearStillProgress - 0.04) / 0.78);
+  const rearEase = easeOutCubic(rearRaw);
+  const rearLiftOpacity = rearEase;
+  const rearLiftVh = (1 - rearEase) * 22;
 
   return (
     <div
@@ -180,42 +214,132 @@ export function FerrariBrandPage() {
 
       {/* Sticky black: gold Gucci-like serif line fades in as you scroll */}
       {reduceMotion ? (
-        <section
-          className="relative z-10 bg-black px-6 py-24 sm:px-10"
-          aria-label="Scuderia Ferrari SF-26"
-        >
-          <p
-            className="mx-auto max-w-4xl text-center text-[clamp(1.35rem,4.5vw,2.25rem)] font-medium leading-snug tracking-[0.12em]"
-            style={{
-              fontFamily: GUCCI_LIKE_SERIF,
-              color: '#c9a227',
-              textShadow: '0 0 36px rgba(201, 162, 39, 0.22)',
-            }}
+        <>
+          <section
+            className="relative z-10 bg-black px-6 py-24 sm:px-10"
+            aria-label="Scuderia Ferrari SF-26"
           >
-            Scuderia Ferrari SF - 26
-          </p>
-        </section>
-      ) : (
-        <div
-          ref={sf26TrackRef}
-          className="relative w-full bg-black"
-          style={{ minHeight: `${SF26_OUTRO_SCROLL_VH}vh` }}
-        >
-          <div className="sticky top-0 z-10 flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black px-6">
             <p
-              className="max-w-[min(40ch,92vw)] text-center text-[clamp(1.15rem,4vw,2.05rem)] font-medium leading-snug tracking-[0.14em] sm:tracking-[0.18em]"
+              className="mx-auto max-w-4xl text-center text-[clamp(1.35rem,4.5vw,2.25rem)] font-medium leading-snug tracking-[0.12em]"
               style={{
                 fontFamily: GUCCI_LIKE_SERIF,
                 color: '#c9a227',
-                opacity: sf26TextOpacity,
-                textShadow: '0 0 42px rgba(201, 162, 39, 0.28), 0 2px 24px rgba(0,0,0,0.65)',
+                textShadow: '0 0 36px rgba(201, 162, 39, 0.22)',
               }}
             >
               Scuderia Ferrari SF - 26
             </p>
+          </section>
+          <section
+            className="relative z-10 h-[100dvh] w-full overflow-hidden bg-black"
+            aria-label="Ferrari SF-26 rear"
+          >
+            <img
+              src={REAR_STILL_IMG}
+              alt=""
+              className="block h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+          </section>
+        </>
+      ) : (
+        <>
+          <div
+            ref={sf26TrackRef}
+            className="relative w-full bg-black"
+            style={{ minHeight: `${SF26_OUTRO_SCROLL_VH}vh` }}
+          >
+            <div className="sticky top-0 z-10 flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black px-6">
+              <p
+                className="max-w-[min(40ch,92vw)] text-center text-[clamp(1.15rem,4vw,2.05rem)] font-medium leading-snug tracking-[0.14em] sm:tracking-[0.18em]"
+                style={{
+                  fontFamily: GUCCI_LIKE_SERIF,
+                  color: '#c9a227',
+                  opacity: sf26TextOpacity,
+                  textShadow: '0 0 42px rgba(201, 162, 39, 0.28), 0 2px 24px rgba(0,0,0,0.65)',
+                }}
+              >
+                Scuderia Ferrari SF - 26
+              </p>
+            </div>
+          </div>
+
+          <div
+            ref={rearStillTrackRef}
+            className="relative w-full bg-black"
+            style={{ minHeight: `${REAR_STILL_SCROLL_VH}vh` }}
+          >
+            <div className="sticky top-0 z-10 h-[100dvh] w-full overflow-hidden bg-black">
+              <img
+                src={REAR_STILL_IMG}
+                alt=""
+                className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
+                style={{
+                  opacity: rearLiftOpacity,
+                  transform: `translate3d(0, ${rearLiftVh}vh, 0)`,
+                  willChange: 'opacity, transform',
+                }}
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      <section
+        className="relative z-10 w-full bg-black px-4 py-10 sm:px-6 sm:py-14"
+        aria-label="Ferrari SF-26 gallery"
+      >
+        <div className="mx-auto max-w-[1600px]">
+          <div className="grid grid-cols-1 gap-0 lg:grid-cols-2 lg:grid-rows-2">
+            <div className="relative aspect-video overflow-hidden lg:row-span-2 lg:aspect-auto lg:min-h-0">
+              <img
+                src={GALLERY_MAIN}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden">
+              <img
+                src={GALLERY_STACK_TOP}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden">
+              <img
+                src={GALLERY_STACK_BOTTOM}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </div>
           </div>
         </div>
-      )}
+      </section>
+
+      <div className="relative z-10 w-full bg-black">
+        <img
+          src={FERRARI_DUAL_ROW_IMG}
+          alt=""
+          className="block h-auto w-full max-w-none"
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
+      </div>
 
       <div className="h-[max(24px,env(safe-area-inset-bottom))] bg-black" aria-hidden />
     </div>

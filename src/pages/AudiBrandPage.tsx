@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { MainShellOutletContext } from '@/layouts/MainShellLayout';
 
@@ -321,6 +321,10 @@ export function AudiBrandPage() {
   /** Black clears → Speedcafe full-bleed */
   const worldsFirstPhotoReveal = reduceMotion ? 1 : easeOutCubic(clamp01((wf - 0.08) / 0.28));
   const worldsFirstBlackVeil = 1 - worldsFirstPhotoReveal;
+  /** “See More” — only once Speedcafe layer has nearly finished fading in (black veil cleared) */
+  const worldsFirstSeeMoreOpacity = reduceMotion
+    ? 1
+    : easeOutCubic(clamp01((worldsFirstPhotoReveal - 0.92) / 0.08));
 
   const dd = driversDuoProgress;
   const driversNameNicoOp = reduceMotion ? 1 : easeOutCubic(clamp01((dd - 0.1) / 0.24));
@@ -560,7 +564,7 @@ export function AudiBrandPage() {
       {/* Black → “world’s first” (SF) → Speedcafe photo */}
       {reduceMotion ? (
         <section className="relative z-10 w-full bg-black" aria-label="World’s first">
-          <div className="relative flex min-h-[min(72dvh,640px)] flex-col items-center justify-center overflow-hidden px-6 py-16">
+          <div className="relative flex min-h-[min(72dvh,640px)] flex-col overflow-hidden">
             <img
               src={AUDI_WORLDS_FIRST_SPEEDCAFE_IMG}
               alt=""
@@ -569,16 +573,28 @@ export function AudiBrandPage() {
               decoding="async"
               referrerPolicy="no-referrer"
             />
-            <p
-              className="relative z-10 text-center font-semibold tracking-[-0.03em] text-white [text-shadow:0_2px_40px_rgba(0,0,0,0.65)]"
-              style={{
-                fontFamily: AUDI_WORLDS_FIRST_FONT,
-                fontSize: 'clamp(2rem, 7vw, 3.5rem)',
-                lineHeight: 1.05,
-              }}
-            >
-              {"world's first"}
-            </p>
+            <div className="relative z-10 flex min-h-[min(72dvh,640px)] flex-1 flex-col items-center justify-center px-6 py-16">
+              <p
+                className="text-center font-semibold tracking-[-0.03em] text-white [text-shadow:0_2px_40px_rgba(0,0,0,0.65)]"
+                style={{
+                  fontFamily: AUDI_WORLDS_FIRST_FONT,
+                  fontSize: 'clamp(2rem, 7vw, 3.5rem)',
+                  lineHeight: 1.05,
+                }}
+              >
+                {"world's first"}
+              </p>
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-7 z-20 flex justify-center px-4 pb-6 md:bottom-9 md:pb-8">
+              <Link
+                to="/cars/audi/showcase"
+                style={{ fontFamily: 'var(--ios-font)' }}
+                className="pointer-events-auto inline-flex h-10 min-h-10 min-w-[10rem] scale-[0.94] items-center justify-center rounded-full border-2 border-neutral-500 bg-black px-10 text-[14px] font-medium leading-none tracking-normal text-white transition-[transform,border-color] duration-200 ease-out hover:border-red-500 active:scale-[0.92] motion-reduce:transform-none focus-visible:border-red-500 focus-visible:outline-none sm:min-w-[11rem] sm:px-11"
+                aria-label="Audi F1 cars showcase"
+              >
+                See More
+              </Link>
+            </div>
           </div>
         </section>
       ) : (
@@ -587,7 +603,7 @@ export function AudiBrandPage() {
           className="relative w-full bg-black"
           style={{ minHeight: `${AUDI_WORLDS_FIRST_SCROLL_VH}vh` }}
         >
-          <div className="sticky top-0 z-10 flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black">
+          <div className="sticky top-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-black">
             <img
               src={AUDI_WORLDS_FIRST_SPEEDCAFE_IMG}
               alt=""
@@ -598,16 +614,34 @@ export function AudiBrandPage() {
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-black" style={{ opacity: worldsFirstBlackVeil }} aria-hidden />
-            <p
-              className="relative z-10 px-6 text-center font-semibold tracking-[-0.03em] text-white [text-shadow:0_2px_40px_rgba(0,0,0,0.65)]"
+            <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6">
+              <p
+                className="text-center font-semibold tracking-[-0.03em] text-white [text-shadow:0_2px_40px_rgba(0,0,0,0.65)]"
+                style={{
+                  fontFamily: AUDI_WORLDS_FIRST_FONT,
+                  fontSize: 'clamp(2rem, 7.5vw, 4.25rem)',
+                  lineHeight: 1.05,
+                }}
+              >
+                {"world's first"}
+              </p>
+            </div>
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-7 z-20 flex justify-center px-4 pb-6 md:bottom-9 md:pb-8"
               style={{
-                fontFamily: AUDI_WORLDS_FIRST_FONT,
-                fontSize: 'clamp(2rem, 7.5vw, 4.25rem)',
-                lineHeight: 1.05,
+                opacity: worldsFirstSeeMoreOpacity,
+                transition: 'opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
               }}
             >
-              {"world's first"}
-            </p>
+              <Link
+                to="/cars/audi/showcase"
+                style={{ fontFamily: 'var(--ios-font)' }}
+                className="pointer-events-auto inline-flex h-10 min-h-10 min-w-[10rem] scale-[0.94] items-center justify-center rounded-full border-2 border-neutral-500 bg-black px-10 text-[14px] font-medium leading-none tracking-normal text-white transition-[transform,border-color] duration-200 ease-out hover:border-red-500 active:scale-[0.92] motion-reduce:transform-none focus-visible:border-red-500 focus-visible:outline-none sm:min-w-[11rem] sm:px-11"
+                aria-label="Audi F1 cars showcase"
+              >
+                See More
+              </Link>
+            </div>
           </div>
         </div>
       )}
@@ -633,18 +667,20 @@ export function AudiBrandPage() {
                   &
                 </span>
               </div>
-              <p
-                className="relative z-10 text-[clamp(1.15rem,4vw,1.9rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_20px_rgba(0,0,0,0.82)]"
+              <Link
+                to="/cars/audi/drivers/nico-hulkenberg"
+                className="relative z-10 text-[clamp(1.15rem,4vw,1.9rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_20px_rgba(0,0,0,0.82)] pointer-events-auto inline-block origin-center rounded-sm outline-offset-2 transition-[transform,colors] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-110 hover:text-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/90 focus-visible:ring-offset-2 focus-visible:ring-offset-black/50"
                 style={{ fontFamily: AUDI_WORLDS_FIRST_FONT }}
               >
                 Nico Hulkenberg
-              </p>
-              <p
-                className="relative z-10 -mt-1 text-[clamp(1.15rem,4vw,1.9rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_20px_rgba(0,0,0,0.82)]"
+              </Link>
+              <Link
+                to="/cars/audi/drivers/gabriel-bortoleto"
+                className="relative z-10 -mt-1 text-[clamp(1.15rem,4vw,1.9rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_20px_rgba(0,0,0,0.82)] pointer-events-auto inline-block origin-center rounded-sm outline-offset-2 transition-[transform,colors] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-110 hover:text-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/90 focus-visible:ring-offset-2 focus-visible:ring-offset-black/50"
                 style={{ fontFamily: AUDI_WORLDS_FIRST_FONT }}
               >
                 Gabriel Bortoleto
-              </p>
+              </Link>
             </div>
           </div>
         </section>
@@ -672,24 +708,26 @@ export function AudiBrandPage() {
                   &
                 </span>
               </div>
-              <p
-                className="relative z-10 text-[clamp(1.15rem,4vw,1.95rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_22px_rgba(0,0,0,0.85)]"
+              <Link
+                to="/cars/audi/drivers/nico-hulkenberg"
+                className="relative z-10 text-[clamp(1.15rem,4vw,1.95rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_22px_rgba(0,0,0,0.85)] pointer-events-auto inline-block origin-center rounded-sm outline-offset-2 transition-[transform,colors] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-110 hover:text-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/90 focus-visible:ring-offset-2 focus-visible:ring-offset-black/50"
                 style={{
                   fontFamily: AUDI_WORLDS_FIRST_FONT,
                   opacity: driversNameNicoOp,
                 }}
               >
                 Nico Hulkenberg
-              </p>
-              <p
-                className="relative z-10 -mt-1 text-[clamp(1.15rem,4vw,1.95rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_22px_rgba(0,0,0,0.85)]"
+              </Link>
+              <Link
+                to="/cars/audi/drivers/gabriel-bortoleto"
+                className="relative z-10 -mt-1 text-[clamp(1.15rem,4vw,1.95rem)] font-semibold leading-none tracking-tight text-white [text-shadow:0_2px_22px_rgba(0,0,0,0.85)] pointer-events-auto inline-block origin-center rounded-sm outline-offset-2 transition-[transform,colors] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-110 hover:text-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/90 focus-visible:ring-offset-2 focus-visible:ring-offset-black/50"
                 style={{
                   fontFamily: AUDI_WORLDS_FIRST_FONT,
                   opacity: driversNameGabrielOp,
                 }}
               >
                 Gabriel Bortoleto
-              </p>
+              </Link>
             </div>
           </div>
         </div>

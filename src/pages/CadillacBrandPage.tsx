@@ -145,10 +145,25 @@ export function CadillacBrandPage() {
   const [stripMaxX, setStripMaxX] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [countdownNow, setCountdownNow] = useState(() => Date.now());
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
 
   useEffect(() => {
     setReduceMotion(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }, []);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightbox(null);
+    };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [lightbox]);
 
   useEffect(() => {
     const id = window.setInterval(() => setCountdownNow(Date.now()), 1000);
@@ -310,11 +325,16 @@ export function CadillacBrandPage() {
             className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-0"
             style={{ fontFamily: 'var(--ios-font)' }}
           >
-            <div className="pointer-events-none absolute inset-x-0 top-10 z-20 px-6 text-center sm:top-12">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-neutral-400">Cadillac F1</p>
-              <h2 className="mt-2 text-[clamp(1.2rem,3vw,1.5rem)] font-semibold tracking-tight text-neutral-900">
+            <div className="absolute inset-x-0 top-10 z-20 px-6 text-center sm:top-12">
+              <p className="pointer-events-none text-[11px] font-semibold uppercase tracking-[0.32em] text-neutral-400">
+                Cadillac F1
+              </p>
+              <Link
+                to="/cars/cadillac/showcase"
+                className="mt-2 inline-block text-[clamp(1.2rem,3vw,1.5rem)] font-semibold tracking-tight text-neutral-900 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2"
+              >
                 MAC-26
-              </h2>
+              </Link>
             </div>
 
             <div className="flex w-full max-w-none flex-1 items-center overflow-hidden pt-20 pb-8 pl-[max(20px,env(safe-area-inset-left))] sm:pt-24 sm:pl-[max(28px,env(safe-area-inset-left))] md:pl-[max(36px,env(safe-area-inset-left))]">
@@ -331,7 +351,7 @@ export function CadillacBrandPage() {
                     src={item.src}
                     alt={item.alt}
                     className={cn(
-                      'h-auto w-auto shrink-0 rounded-none bg-neutral-100 ring-1 ring-neutral-200/90',
+                      'h-auto w-auto shrink-0 cursor-pointer rounded-none bg-neutral-100 ring-1 ring-neutral-200/90',
                       i % 2 === 0
                         ? 'max-h-[min(52dvh,520px)] sm:max-h-[min(56dvh,580px)]'
                         : 'max-h-[min(32dvh,300px)] sm:max-h-[min(36dvh,340px)]'
@@ -339,6 +359,15 @@ export function CadillacBrandPage() {
                     loading={i < 2 ? 'eager' : 'lazy'}
                     decoding="async"
                     referrerPolicy="no-referrer"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setLightbox({ src: item.src, alt: item.alt })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setLightbox({ src: item.src, alt: item.alt });
+                      }
+                    }}
                     onLoad={measureStrip}
                   />
                 ))}
@@ -562,6 +591,23 @@ export function CadillacBrandPage() {
           </Link>
         </div>
       </section>
+
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[300] flex cursor-pointer items-center justify-center bg-black/92 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Expanded photo — click anywhere to close"
+          onClick={() => setLightbox(null)}
+        >
+          <img
+            src={lightbox.src}
+            alt={lightbox.alt}
+            className="max-h-[min(92dvh,92vh)] max-w-full cursor-pointer object-contain"
+          />
+        </div>
+      )}
 
       <div className="h-[max(24px,env(safe-area-inset-bottom))] bg-white" aria-hidden />
     </div>

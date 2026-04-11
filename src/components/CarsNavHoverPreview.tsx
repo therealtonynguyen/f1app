@@ -4,95 +4,120 @@ import { cn } from '@/lib/utils';
 type TeamTile = {
   name: string;
   path: string;
+  /** Side-profile car render (FOM) — shown in the strip instead of team logo */
   logoUrl: string;
   maxWidthClass: string;
-  /** When set, overrides the default strip max height for this logo */
+  /** When set, overrides the default strip max height */
   maxHeight?: string;
 };
+
+/** Wide side-view renders — larger; strip scrolls horizontally */
+const carStripW = 'max-w-full';
+const carStripH = 'min(18vh, 96px)';
 
 const TEAM_TILES: TeamTile[] = [
   {
     name: 'Aston Martin',
     path: '/cars/aston-martin',
-    logoUrl: 'https://car-brand-names.com/wp-content/uploads/2019/10/Aston-Martin-Logo-2003.png',
-    maxWidthClass: 'max-w-[min(22vw,120px)]',
+    logoUrl:
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/astonmartin/2026astonmartincarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'Ferrari',
     path: '/cars/ferrari',
-    logoUrl: 'https://static.wixstatic.com/media/f2bf43_655a783d22fd4786aa17b096ba3ff9e5~mv2.png',
-    maxWidthClass: 'max-w-[min(22vw,120px)]',
+    logoUrl:
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/ferrari/2026ferraricarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'Red Bull Racing',
     path: '/cars/red-bull',
-    logoUrl: 'https://www.freepnglogos.com/uploads/red-bull-logo/red-bull-energy-png-logo-10.png',
-    maxWidthClass: 'max-w-[min(52vw,340px)]',
-    maxHeight: 'min(24vh, 108px)',
+    logoUrl:
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/redbullracing/2026redbullracingcarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'Williams',
     path: '/cars/williams',
-    logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/f/f9/Logo_Williams_F1.png',
-    maxWidthClass: 'max-w-[min(17vw,90px)]',
+    logoUrl:
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/williams/2026williamscarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'Racing Bulls',
     path: '/cars/racing-bulls',
-    logoUrl: 'https://liquipedia.net/commons/images/thumb/3/39/RB_allmode.png/600px-RB_allmode.png',
-    maxWidthClass: 'max-w-[min(18vw,96px)]',
+    logoUrl:
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/racingbulls/2026racingbullscarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'Cadillac',
     path: '/cars/cadillac',
-    logoUrl: 'https://1000logos.net/wp-content/uploads/2020/04/Cadillac-Logo.png',
-    maxWidthClass: 'max-w-[min(18vw,96px)]',
+    logoUrl:
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/cadillac/2026cadillaccarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'Haas',
     path: '/cars/haas',
     logoUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Haas_F1_Team_Logo.svg/3840px-Haas_F1_Team_Logo.svg.png',
-    maxWidthClass: 'max-w-[min(16vw,84px)]',
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/haas/2026haascarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'Alpine',
     path: '/cars/alpine',
-    logoUrl: 'https://download.logo.wine/logo/Alpine_(automobile)/Alpine_(automobile)-Logo.wine.png',
-    maxWidthClass: 'max-w-[min(18vw,96px)]',
+    logoUrl:
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/alpine/2026alpinecarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'McLaren',
     path: '/cars/mclaren',
-    logoUrl: 'https://img.icons8.com/ios_filled/512/FD7E14/mclaren.png',
-    maxWidthClass: 'max-w-[min(16vw,88px)]',
+    logoUrl:
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/mclaren/2026mclarencarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'Mercedes',
     path: '/cars/mercedes',
     logoUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Mercedes-Logo.svg/3840px-Mercedes-Logo.svg.png',
-    maxWidthClass: 'max-w-[min(16vw,84px)]',
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/mercedes/2026mercedescarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
   {
     name: 'Audi',
     path: '/cars/audi',
     logoUrl:
-      'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/ab371d58-f694-4953-a2e5-c79acedd9f56/d8nugw9-8e355eca-4fdd-4e2e-8ffa-348e70a4be6f.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiIvZi9hYjM3MWQ1OC1mNjk0LTQ5NTMtYTJlNS1jNzlhY2VkZDlmNTYvZDhudWd3OS04ZTM1NWVjYS00ZmRkLTRlMmUtOGZmYS0zNDhlNzBhNGJlNmYucG5nIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.T6Zybu8XfrcMYeSqc02DasrEQi_JzJ9okkB2a9SqHj8',
-    maxWidthClass: 'max-w-[min(16vw,84px)]',
+      'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/audi/2026audicarright.webp',
+    maxWidthClass: carStripW,
+    maxHeight: carStripH,
   },
 ];
 
-const logoMaxH = 'min(12vh, 64px)';
+const logoMaxH = carStripH;
+
+/** Wider than the viewport — continues off the right edge; scroll horizontally */
+const stripInnerGridClass =
+  'inline-grid w-max min-w-max grid-cols-11 [grid-template-columns:repeat(11,minmax(6.5rem,auto))] items-center gap-x-[clamp(1rem,3vw,2rem)] px-[clamp(1.25rem,6vw,4rem)] py-0.5';
 
 function TeamStripLink({
   team,
-  idx,
   ringTone,
   onNavigate,
 }: {
   team: TeamTile;
-  idx: number;
   ringTone: string;
   onNavigate?: () => void;
 }) {
@@ -100,8 +125,7 @@ function TeamStripLink({
     <Link
       to={team.path}
       className={cn(
-        'relative flex shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none ring-offset-2 ring-offset-transparent transition-opacity hover:opacity-90 focus-visible:ring-2',
-        idx === 0 && 'z-[1]',
+        'relative flex w-full min-w-0 max-w-full cursor-pointer snap-start items-center justify-center rounded-sm outline-none ring-offset-2 ring-offset-transparent transition-opacity hover:opacity-90 focus-visible:ring-2',
         ringTone
       )}
       aria-label={`${team.name} — team page`}
@@ -113,7 +137,10 @@ function TeamStripLink({
       <img
         src={team.logoUrl}
         alt=""
-        className={cn('pointer-events-none h-auto w-auto object-contain object-center', team.maxWidthClass)}
+        className={cn(
+          'pointer-events-none h-auto w-auto min-w-0 max-w-full object-contain object-center',
+          team.maxWidthClass
+        )}
         style={{ maxHeight: team.maxHeight ?? logoMaxH }}
         loading="lazy"
         decoding="async"
@@ -126,7 +153,7 @@ function TeamStripLink({
 export type CarsNavHoverPreviewVariant = 'light' | 'dark';
 
 /**
- * Aston, Ferrari, Red Bull, Williams marks for quick team access.
+ * Team side-profile car renders (FOM) for quick access under Cars.
  * `dark` matches a black nav bar; `light` matches a white / non-black bar.
  */
 export function CarsNavHoverPreview({
@@ -141,6 +168,7 @@ export function CarsNavHoverPreview({
     variant === 'light'
       ? 'text-neutral-700 hover:text-neutral-900'
       : 'text-white/70 hover:text-white/95';
+
   return (
     <div
       className="flex h-full min-h-0 w-full flex-col items-stretch justify-center py-1 pr-3 sm:py-2 sm:pr-4"
@@ -148,30 +176,25 @@ export function CarsNavHoverPreview({
       <div className="relative h-full w-full min-h-0 flex-1 overflow-hidden">
         <div
           className={cn(
-            'cars-nav-drive-strip absolute inset-0 flex w-full min-w-0 flex-nowrap items-center justify-between overflow-x-auto overflow-y-hidden',
-            'gap-[clamp(0.5rem,2.5vw,2.25rem)] px-[clamp(0.75rem,4vw,3rem)]'
+            'cars-nav-drive-strip absolute inset-0 min-h-0 overflow-x-auto overflow-y-hidden',
+            '[scrollbar-gutter:stable]',
+            'snap-x snap-mandatory scroll-pl-4 scroll-pr-8 sm:scroll-pl-6 sm:scroll-pr-12'
           )}
+          title="Scroll sideways to browse teams"
         >
-          <>
-            <TeamStripLink team={TEAM_TILES[0]!} idx={0} ringTone={ringTone} onNavigate={onNavigate} />
-            {/* Tight cluster so Ferrari + Williams sit close to the large Red Bull mark */}
-            <div className="flex shrink-0 items-center gap-[clamp(0.0625rem,0.45vw,0.45rem)] sm:gap-[clamp(0.125rem,0.55vw,0.5rem)]">
-              <TeamStripLink team={TEAM_TILES[1]!} idx={1} ringTone={ringTone} onNavigate={onNavigate} />
-              <TeamStripLink team={TEAM_TILES[2]!} idx={2} ringTone={ringTone} onNavigate={onNavigate} />
-              <TeamStripLink team={TEAM_TILES[3]!} idx={3} ringTone={ringTone} onNavigate={onNavigate} />
-            </div>
-            {TEAM_TILES.slice(4).map((team, j) => {
-              const idx = 4 + j;
+          <div className="flex min-h-full w-max shrink-0 flex-col justify-center">
+            <div className={stripInnerGridClass}>
+            {TEAM_TILES.map((team) => {
               if (team.name === 'Audi') {
                 return (
                   <div
                     key="audi-years"
-                    className="flex shrink-0 items-center gap-[clamp(0.25rem,1vw,0.75rem)]"
+                    className="flex min-h-0 min-w-0 snap-start items-center justify-center gap-[clamp(0.25rem,0.85vw,0.55rem)] overflow-hidden"
                   >
                     <Link
                       to={team.path}
                       className={cn(
-                        'relative flex shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none ring-offset-2 ring-offset-transparent transition-opacity hover:opacity-90 focus-visible:ring-2',
+                        'relative flex min-h-0 min-w-0 max-w-full flex-1 cursor-pointer items-center justify-center rounded-sm outline-none ring-offset-2 ring-offset-transparent transition-opacity hover:opacity-90 focus-visible:ring-2',
                         ringTone
                       )}
                       aria-label={`${team.name} — brand page`}
@@ -184,7 +207,7 @@ export function CarsNavHoverPreview({
                         src={team.logoUrl}
                         alt=""
                         className={cn(
-                          'pointer-events-none h-auto w-auto object-contain object-center',
+                          'pointer-events-none h-auto w-auto min-w-0 max-w-full object-contain object-center',
                           team.maxWidthClass
                         )}
                         style={{ maxHeight: team.maxHeight ?? logoMaxH }}
@@ -196,7 +219,7 @@ export function CarsNavHoverPreview({
                     <Link
                       to="/cars"
                       className={cn(
-                        'relative flex h-[min(12vh,64px)] w-[clamp(1.75rem,4vw,3rem)] shrink-0 cursor-pointer flex-col items-center justify-center rounded-sm outline-none ring-offset-2 ring-offset-transparent transition-opacity hover:opacity-90 focus-visible:ring-2',
+                        'relative flex h-[min(18vh,96px)] w-[clamp(1.5rem,3.8vw,2.85rem)] shrink-0 cursor-pointer flex-col items-center justify-center rounded-sm outline-none ring-offset-2 ring-offset-transparent transition-opacity hover:opacity-90 focus-visible:ring-2',
                         ringTone,
                         yearsLabel
                       )}
@@ -207,7 +230,7 @@ export function CarsNavHoverPreview({
                       }}
                     >
                       <span
-                        className="inline-block origin-center -rotate-90 whitespace-nowrap text-[clamp(9px,1.35vw,14px)] font-semibold uppercase tracking-[0.22em] sm:tracking-[0.26em]"
+                        className="inline-block origin-center -rotate-90 whitespace-nowrap text-[clamp(10px,1.5vw,15px)] font-semibold uppercase tracking-[0.22em] sm:tracking-[0.26em]"
                         style={{ fontFamily: 'var(--ios-font)' }}
                       >
                         YEARS
@@ -217,16 +240,16 @@ export function CarsNavHoverPreview({
                 );
               }
               return (
-                <TeamStripLink
+                <div
                   key={team.name}
-                  team={team}
-                  idx={idx}
-                  ringTone={ringTone}
-                  onNavigate={onNavigate}
-                />
+                  className="flex min-h-0 min-w-0 snap-start items-center justify-center overflow-hidden"
+                >
+                  <TeamStripLink team={team} ringTone={ringTone} onNavigate={onNavigate} />
+                </div>
               );
             })}
-          </>
+            </div>
+          </div>
         </div>
       </div>
     </div>

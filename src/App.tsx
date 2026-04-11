@@ -5,10 +5,14 @@ import { RaceCalendarPage } from './pages/RaceCalendarPage';
 import { AstonMartinBrandPage } from './pages/AstonMartinBrandPage';
 import { FerrariBrandPage } from './pages/FerrariBrandPage';
 import { CadillacBrandPage } from './pages/CadillacBrandPage';
+import { CadillacCarsShowcasePage } from './pages/CadillacCarsShowcasePage';
 import { AlpineBrandPage } from './pages/AlpineBrandPage';
 import { RacingBullsBrandPage } from './pages/RacingBullsBrandPage';
 import { AudiBrandPage } from './pages/AudiBrandPage';
+import { AudiCarsShowcasePage } from './pages/AudiCarsShowcasePage';
+import { AudiDriverPage } from './pages/AudiDriverPage';
 import { MercedesBrandPage } from './pages/MercedesBrandPage';
+import { MercedesCarsShowcasePage } from './pages/MercedesCarsShowcasePage';
 import { MercedesDriverPage } from './pages/MercedesDriverPage';
 import { HaasBrandPage } from './pages/HaasBrandPage';
 import { WilliamsBrandPage } from './pages/WilliamsBrandPage';
@@ -31,10 +35,14 @@ export default function App() {
         <Route path="/calendar" element={<RaceCalendarPage />} />
         <Route path="/cars/aston-martin" element={<AstonMartinBrandPage />} />
         <Route path="/cars/ferrari" element={<FerrariBrandPage />} />
+        <Route path="/cars/cadillac/showcase" element={<CadillacCarsShowcasePage />} />
         <Route path="/cars/cadillac" element={<CadillacBrandPage />} />
         <Route path="/cars/alpine" element={<AlpineBrandPage />} />
         <Route path="/cars/racing-bulls" element={<RacingBullsBrandPage />} />
+        <Route path="/cars/audi/showcase" element={<AudiCarsShowcasePage />} />
+        <Route path="/cars/audi/drivers/:driverSlug" element={<AudiDriverPage />} />
         <Route path="/cars/audi" element={<AudiBrandPage />} />
+        <Route path="/cars/mercedes/showcase" element={<MercedesCarsShowcasePage />} />
         <Route path="/cars/mercedes" element={<MercedesBrandPage />} />
         <Route path="/cars/mercedes/drivers/:driverSlug" element={<MercedesDriverPage />} />
         <Route path="/cars/haas" element={<HaasBrandPage />} />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import type { MainShellOutletContext } from '@/layouts/MainShellLayout';
 
@@ -15,6 +15,12 @@ const SPIN_TRACK_VH = 320;
 
 /** Scroll length for W17 type → FOM W17 photo reveal */
 const W17_TRACK_VH = 380;
+
+/** Scroll length — 2026 car side profile drives L → R across black (before teal) */
+const MERCEDES_DRIVE_AWAY_SCROLL_VH = 320;
+
+const MERCEDES_DRIVE_AWAY_IMG =
+  'https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/common/f1/2026/mercedes/2026mercedescarright.webp';
 
 /** Scroll length after drivers — 7 teal bars slide down (L→R) */
 const TEAL_BARS_TRACK_VH = 300;
@@ -47,14 +53,9 @@ function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
 }
 
-function offsetTopToAncestor(element: HTMLElement, ancestor: HTMLElement): number {
-  let top = 0;
-  let el: HTMLElement | null = element;
-  while (el && el !== ancestor) {
-    top += el.offsetTop;
-    el = el.parentElement;
-  }
-  return top;
+/** Top edge of `el` within `main`'s scrollable content (padding / offsetParent–safe). */
+function elementTopInMainScrollContent(main: HTMLElement, el: HTMLElement): number {
+  return el.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop;
 }
 
 /** Cubic: slow spin at first, much faster rotation per scroll unit near the end. */
@@ -96,8 +97,10 @@ export function MercedesBrandPage() {
   const spinTrackRef = useRef<HTMLDivElement>(null);
   const w17TrackRef = useRef<HTMLDivElement>(null);
   const tealBarsTrackRef = useRef<HTMLDivElement>(null);
+  const driveAwayTrackRef = useRef<HTMLDivElement>(null);
   const [spinProgress, setSpinProgress] = useState(0);
   const [w17Progress, setW17Progress] = useState(0);
+  const [driveAwayProgress, setDriveAwayProgress] = useState(0);
   const [tealBarsProgress, setTealBarsProgress] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -112,21 +115,28 @@ export function MercedesBrandPage() {
 
     const spinTrack = spinTrackRef.current;
     if (spinTrack) {
-      const top = offsetTopToAncestor(spinTrack, main);
+      const top = elementTopInMainScrollContent(main, spinTrack);
       const range = Math.max(1, spinTrack.offsetHeight - main.clientHeight);
       setSpinProgress(clamp01((scrollTop - top) / range));
     }
 
     const w17Track = w17TrackRef.current;
     if (w17Track) {
-      const top = offsetTopToAncestor(w17Track, main);
+      const top = elementTopInMainScrollContent(main, w17Track);
       const range = Math.max(1, w17Track.offsetHeight - main.clientHeight);
       setW17Progress(clamp01((scrollTop - top) / range));
     }
 
+    const driveAwayTrack = driveAwayTrackRef.current;
+    if (driveAwayTrack) {
+      const top = elementTopInMainScrollContent(main, driveAwayTrack);
+      const range = Math.max(1, driveAwayTrack.offsetHeight - main.clientHeight);
+      setDriveAwayProgress(clamp01((scrollTop - top) / range));
+    }
+
     const tealBarsTrack = tealBarsTrackRef.current;
     if (tealBarsTrack) {
-      const top = offsetTopToAncestor(tealBarsTrack, main);
+      const top = elementTopInMainScrollContent(main, tealBarsTrack);
       const range = Math.max(1, tealBarsTrack.offsetHeight - main.clientHeight);
       setTealBarsProgress(clamp01((scrollTop - top) / range));
     }
@@ -140,8 +150,10 @@ export function MercedesBrandPage() {
     window.addEventListener('resize', updateScroll, { passive: true });
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateScroll) : null;
     if (ro) {
+      ro.observe(main);
       if (spinTrackRef.current) ro.observe(spinTrackRef.current);
       if (w17TrackRef.current) ro.observe(w17TrackRef.current);
+      if (driveAwayTrackRef.current) ro.observe(driveAwayTrackRef.current);
       if (tealBarsTrackRef.current) ro.observe(tealBarsTrackRef.current);
     }
     return () => {
@@ -150,6 +162,10 @@ export function MercedesBrandPage() {
       ro?.disconnect();
     };
   }, [mainScrollRef, updateScroll]);
+
+  useLayoutEffect(() => {
+    updateScroll();
+  }, [updateScroll]);
 
   const rotationDeg = reduceMotion ? 0 : spinDegrees(spinProgress);
   const logoOpacity = spinLogoOpacity(spinProgress);
@@ -339,17 +355,14 @@ export function MercedesBrandPage() {
         </div>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-7 z-20 flex justify-center px-4 pb-6 md:bottom-9 md:pb-8">
-          <a
-            href="#upcoming-legends"
+          <Link
+            to="/cars/mercedes/showcase"
             style={{ fontFamily: 'var(--ios-font)' }}
             className="pointer-events-auto inline-flex h-10 min-h-10 min-w-[10rem] scale-[0.94] items-center justify-center rounded-full border-2 border-neutral-500 bg-black px-10 text-[14px] font-medium leading-none tracking-normal text-white transition-[transform,border-color] duration-200 ease-out hover:border-[#00D2BE] active:scale-[0.92] motion-reduce:transform-none focus-visible:border-[#00D2BE] focus-visible:outline-none sm:min-w-[11rem] sm:px-11"
-            onClick={(e) => {
-              e.preventDefault();
-              document.getElementById('upcoming-legends')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
+            aria-label="Mercedes F1 cars showcase"
           >
             See More
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -419,7 +432,34 @@ export function MercedesBrandPage() {
         </div>
       </section>
 
-      {/* After drivers — seven Petronas-teal columns drop in, left → right, covering the viewport */}
+      {/* 2026 car — scroll drives side profile from left off-screen across to the right (before teal) */}
+      <div
+        ref={driveAwayTrackRef}
+        className="relative z-10 w-full bg-black"
+        style={{ minHeight: `${MERCEDES_DRIVE_AWAY_SCROLL_VH}vh` }}
+        aria-hidden
+      >
+        <div className="sticky top-0 z-10 flex h-[100dvh] w-full items-center overflow-hidden bg-black">
+          <img
+            src={MERCEDES_DRIVE_AWAY_IMG}
+            alt=""
+            width={3392}
+            height={1272}
+            className="pointer-events-none absolute left-0 top-1/2 max-h-[min(42vh,420px)] w-[min(95vw,1040px)] max-w-none object-contain object-left select-none"
+            style={{
+              transform: reduceMotion
+                ? 'translate3d(calc(50vw - 50%), -50%, 0)'
+                : `translate3d(calc(-100% + ${driveAwayProgress} * (100vw + 100%)), -50%, 0)`,
+              willChange: reduceMotion ? undefined : 'transform',
+            }}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      </div>
+
+      {/* After drive-away — seven Petronas-teal columns drop in, left → right, covering the viewport */}
       <div
         ref={tealBarsTrackRef}
         className="relative z-20 w-full bg-black"
